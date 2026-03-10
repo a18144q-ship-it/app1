@@ -14,27 +14,24 @@ jobs:
 
       - name: 自动寻找项目并建造
         run: |
-          # 1. 找到 package.json 所在的真正文件夹
           TARGET_DIR=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1 | xargs dirname)
           echo "发现项目位于: $TARGET_DIR"
           cd "$TARGET_DIR"
-          
-          # 2. 安装依赖并构建网页
           npm install
           npm run build
-          
-          # 3. 安装 Capacitor 并配置安卓
           npm install @capacitor/cli @capacitor/core @capacitor/android
-          # 这里会自动创建安卓项目
-          npx cap init "MyLifeApp" "com.life.record" --web-dir dist
-          npx cap add android
+          # 如果 android 文件夹已存在则不重复 init
+          if [ ! -d "android" ]; then
+            npx cap init "MyLifeApp" "com.life.record" --web-dir dist
+            npx cap add android
+          fi
           npx cap copy
           
-      - name: 设置 Java
+      - name: 设置 Java 21
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: 'microsoft' # 微软提供的 Java 21 分发版比较稳定
+          java-version: '21'
           
       - name: 生成 APK
         run: |
@@ -47,5 +44,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: My-App-Install-Package
-          # 自动寻找生成的 apk 文件路径
           path: "**/app-debug.apk"
