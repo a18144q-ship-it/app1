@@ -1,0 +1,47 @@
+name: Build Android APK
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          
+      - name: Install & Build
+        run: |
+          # 自动进入你的代码文件夹
+          cd "设计师工作空间/pure-local-life-record-app"
+          npm install
+          npm run build
+          
+      - name: Capacitor Build
+        run: |
+          cd "设计师工作空间/pure-local-life-record-app"
+          npm install @capacitor/cli @capacitor/core @capacitor/android
+          # 初始化并指定打包 dist 目录
+          npx cap init "MyLife" "com.myapp.life" --web-dir dist
+          npx cap add android
+          npx cap copy
+          
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          
+      - name: Generate APK
+        run: |
+          cd "设计师工作空间/pure-local-life-record-app/android"
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: My-App-Install-Package
+          path: "设计师工作空间/pure-local-life-record-app/android/app/build/outputs/apk/debug/app-debug.apk"
