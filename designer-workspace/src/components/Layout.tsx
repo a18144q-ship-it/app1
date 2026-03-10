@@ -9,7 +9,7 @@ export default function Layout() {
 
   return (
     <div className="relative flex min-h-screen w-full max-w-md mx-auto flex-col bg-slate-50 dark:bg-black overflow-x-hidden shadow-xl transition-colors duration-300">
-      <main className="flex-1 overflow-y-auto pb-20">
+      <main className="flex-1 overflow-y-auto pb-24">
         <AnimatePresence mode="wait">
           <div key={location.pathname} className="h-full">
             <Outlet />
@@ -17,7 +17,7 @@ export default function Layout() {
         </AnimatePresence>
       </main>
 
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 pb-safe pt-2 flex justify-between items-center z-50">
+      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 pb-safe-2 pt-2 flex justify-between items-center z-50">
         <NavLink
           to="/"
           className={({ isActive }) =>

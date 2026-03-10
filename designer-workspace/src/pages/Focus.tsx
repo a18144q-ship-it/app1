@@ -160,7 +160,7 @@ export default function Focus() {
       exit={{ opacity: 0, scale: 0.95 }}
       className="flex flex-col min-h-full bg-white dark:bg-black"
     >
-      <header className="flex items-center justify-between px-6 py-4">
+      <header className="flex items-center justify-between px-6 pb-4 pt-safe-4">
         <button onClick={() => navigate(-1)} className="flex items-center justify-center size-10 rounded-full hover:bg-[#4cb2e6]/10 transition-colors cursor-pointer">
           <ChevronLeft className="w-6 h-6 text-slate-600 dark:text-slate-300" />
         </button>

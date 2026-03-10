@@ -61,7 +61,7 @@ export default function AI() {
       exit={{ opacity: 0, x: -20 }}
       className="flex flex-col min-h-full bg-slate-50 dark:bg-black pb-24"
     >
-      <header className="sticky top-0 z-10 flex items-center bg-white/80 dark:bg-black/80 backdrop-blur-md p-4 justify-between border-b border-slate-200 dark:border-slate-800">
+      <header className="sticky top-0 z-10 flex items-center bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 pb-4 pt-safe-4 justify-between border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="text-slate-900 dark:text-slate-100 flex size-8 items-center justify-center cursor-pointer">
             <ArrowLeft className="w-5 h-5" />
