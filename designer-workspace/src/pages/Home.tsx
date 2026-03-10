@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, ArrowRight, Sparkles, Moon, Sun, X, Copy, Check } from 'lucide-react';
+import { Search, ArrowRight, Sparkles, Moon, Sun, X, Copy, Check, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
@@ -90,6 +90,12 @@ export default function Home() {
           className="flex size-10 shrink-0 items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 rounded-full transition-all text-slate-600 dark:text-slate-400"
         >
           {isDark ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
+        </button>
+        <button 
+          onClick={() => navigate('/sync')}
+          className="flex size-10 shrink-0 items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 rounded-full transition-all text-slate-600 dark:text-slate-400"
+        >
+          <RefreshCw className="w-5 h-5" />
         </button>
         <h1 className="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-tight flex-1 text-center">
           设计师工作台

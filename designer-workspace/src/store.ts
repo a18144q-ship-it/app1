@@ -153,6 +153,15 @@ export const store = {
     return () => {
       listeners.delete(listener);
     };
+  },
+  replaceState: (newState: AppState) => {
+    globalState = { ...newState };
+    try {
+      localStorage.setItem('app_state', JSON.stringify(globalState));
+    } catch (e) {
+      console.warn('Failed to save state to localStorage:', e);
+    }
+    listeners.forEach(listener => listener());
   }
 };
 

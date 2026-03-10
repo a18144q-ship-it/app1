@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { Home, CheckSquare, Sparkles, Timer, BarChart2 } from 'lucide-react';
+import { Home, CheckSquare, Sparkles, Timer, BarChart2, RefreshCw } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '../utils/cn';
 
@@ -13,6 +13,7 @@ export default function Layout() {
     { to: "/ai", icon: Sparkles, label: "AI" },
     { to: "/focus", icon: Timer, label: "专注" },
     { to: "/stats", icon: BarChart2, label: "统计" },
+    { to: "/sync", icon: RefreshCw, label: "同步" },
   ];
 
   return (
