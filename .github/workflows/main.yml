@@ -17,20 +17,31 @@ jobs:
           TARGET_DIR=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1 | xargs dirname)
           echo "发现项目位于: $TARGET_DIR"
           cd "$TARGET_DIR"
+          
+          # 1. 安装并构建网页
           npm install
           npm run build
+          
+          # 2. 如果已经有安卓文件夹，彻底删掉重开（防止之前的缓存干扰）
+          rm -rf android
+          
+          # 3. 重新初始化
           npm install @capacitor/cli @capacitor/core @capacitor/android
-          # 如果 android 文件夹已存在则不重复 init
-          if [ ! -d "android" ]; then
-            npx cap init "MyLifeApp" "com.life.record" --web-dir dist
-            npx cap add android
-          fi
+          npx cap init "MyLifeApp" "com.life.record" --web-dir dist
+          npx cap add android
+          
+          # 4. 强制修复 Kotlin 依赖冲突（解决你截图里的报错）
+          cd android
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          
+          cd ..
           npx cap copy
           
       - name: 设置 Java 21
         uses: actions/setup-java@v4
         with:
-          distribution: 'microsoft' # 微软提供的 Java 21 分发版比较稳定
+          distribution: 'microsoft'
           java-version: '21'
           
       - name: 生成 APK
@@ -38,7 +49,8 @@ jobs:
           TARGET_DIR=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1 | xargs dirname)
           cd "$TARGET_DIR/android"
           chmod +x gradlew
-          ./gradlew assembleDebug
+          # 使用强制刷新模式编译
+          ./gradlew assembleDebug --stacktrace
 
       - name: 寻找并上传 APK
         uses: actions/upload-artifact@v4
