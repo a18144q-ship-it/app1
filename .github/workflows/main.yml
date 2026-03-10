@@ -11,37 +11,41 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          
-      - name: Install & Build
+
+      - name: 自动寻找项目并建造
         run: |
-          # 自动进入你的代码文件夹
-          cd "设计师工作空间/pure-local-life-record-app"
+          # 1. 找到 package.json 所在的真正文件夹
+          TARGET_DIR=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1 | xargs dirname)
+          echo "发现项目位于: $TARGET_DIR"
+          cd "$TARGET_DIR"
+          
+          # 2. 安装依赖并构建网页
           npm install
           npm run build
           
-      - name: Capacitor Build
-        run: |
-          cd "设计师工作空间/pure-local-life-record-app"
+          # 3. 安装 Capacitor 并配置安卓
           npm install @capacitor/cli @capacitor/core @capacitor/android
-          # 初始化并指定打包 dist 目录
-          npx cap init "MyLife" "com.myapp.life" --web-dir dist
+          # 这里会自动创建安卓项目
+          npx cap init "MyLifeApp" "com.life.record" --web-dir dist
           npx cap add android
           npx cap copy
           
-      - name: Setup Java
+      - name: 设置 Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
           
-      - name: Generate APK
+      - name: 生成 APK
         run: |
-          cd "设计师工作空间/pure-local-life-record-app/android"
+          TARGET_DIR=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1 | xargs dirname)
+          cd "$TARGET_DIR/android"
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: 寻找并上传 APK
         uses: actions/upload-artifact@v4
         with:
           name: My-App-Install-Package
-          path: "设计师工作空间/pure-local-life-record-app/android/app/build/outputs/apk/debug/app-debug.apk"
+          # 自动寻找生成的 apk 文件路径
+          path: "**/app-debug.apk"
