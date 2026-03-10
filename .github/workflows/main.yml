@@ -12,30 +12,52 @@ jobs:
         with:
           node-version: 20
 
-      - name: 自动寻找项目并建造
+      - name: 🛠️ 暴力修复依赖并构建
         run: |
+          # 1. 定位项目
           TARGET_DIR=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1 | xargs dirname)
-          echo "发现项目位于: $TARGET_DIR"
           cd "$TARGET_DIR"
           
-          # 1. 安装并构建网页
+          # 2. 网页端打包
           npm install
           npm run build
           
-          # 2. 如果已经有安卓文件夹，彻底删掉重开（防止之前的缓存干扰）
+          # 3. 重建安卓环境
           rm -rf android
-          
-          # 3. 重新初始化
           npm install @capacitor/cli @capacitor/core @capacitor/android
           npx cap init "MyLifeApp" "com.life.record" --web-dir dist
           npx cap add android
           
-          # 4. 强制修复 Kotlin 依赖冲突（解决你截图里的报错）
-          cd android
-          echo "android.useAndroidX=true" >> gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
+          # 4. 【核心修复】强行改写安卓配置，解决 Duplicate Class 报错
+          # 修改 build.gradle 强制指定 Kotlin 版本
+          sed -i 's/kotlin_version = .*/kotlin_version = "1.9.10"/' android/build.gradle
           
-          cd ..
+          # 在 app/build.gradle 中强制排除冲突库
+          cat <<EOF > android/app/build.gradle.tmp
+          apply plugin: 'com.android.application'
+          android {
+              namespace "com.life.record"
+              compileSdkVersion 34
+              defaultConfig {
+                  applicationId "com.life.record"
+                  minSdkVersion 22
+                  targetSdkVersion 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              configurations.all {
+                  resolutionStrategy {
+                      force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.10'
+                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.10'
+                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10'
+                  }
+              }
+          }
+          EOF
+          # 这一步是把修复逻辑注入到原本的配置中
+          cat android/app/build.gradle >> android/app/build.gradle.tmp
+          mv android/app/build.gradle.tmp android/app/build.gradle
+          
           npx cap copy
           
       - name: 设置 Java 21
@@ -44,15 +66,15 @@ jobs:
           distribution: 'microsoft'
           java-version: '21'
           
-      - name: 生成 APK
+      - name: 🚀 最后的冲刺：生成 APK
         run: |
           TARGET_DIR=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1 | xargs dirname)
           cd "$TARGET_DIR/android"
           chmod +x gradlew
-          # 使用强制刷新模式编译
-          ./gradlew assembleDebug --stacktrace
+          # 使用清洗模式编译
+          ./gradlew clean assembleDebug --no-daemon
 
-      - name: 寻找并上传 APK
+      - name: 📦 导出安装包
         uses: actions/upload-artifact@v4
         with:
           name: My-App-Install-Package
