@@ -82,9 +82,9 @@ export default function Home() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="flex flex-col min-h-full bg-white dark:bg-black pb-20"
+      className="flex flex-col min-h-full bg-white dark:bg-black pb-20 md:pb-10"
     >
-      <header className="flex items-center bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 pb-4 pt-safe-4 border-b border-slate-100 dark:border-slate-800 sticky top-0 z-10">
+      <header className="flex items-center bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 pb-4 pt-safe-4 border-b border-slate-100 dark:border-slate-800 sticky top-0 z-10 md:hidden">
         <button 
           onClick={toggleTheme}
           className="flex size-10 shrink-0 items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 rounded-full transition-all text-slate-600 dark:text-slate-400"

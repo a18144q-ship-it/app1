@@ -375,7 +375,7 @@ export default function Tasks() {
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className="flex flex-col min-h-full bg-white dark:bg-black pb-24 relative"
+      className="flex flex-col min-h-full bg-white dark:bg-black pb-24 md:pb-10 relative"
     >
       <AnimatePresence>
         {toastMessage && (
@@ -475,7 +475,7 @@ export default function Tasks() {
         )}
       </AnimatePresence>
 
-      <header className="flex items-center bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 pb-4 pt-safe-4 border-b border-slate-100 dark:border-slate-800 justify-between sticky top-0 z-10">
+      <header className="flex items-center bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 pb-4 pt-safe-4 border-b border-slate-100 dark:border-slate-800 justify-between sticky top-0 z-10 md:hidden">
         <button onClick={() => navigate(-1)} className="text-slate-900 dark:text-white flex size-10 items-center justify-center cursor-pointer">
           <ArrowLeft className="w-6 h-6" />
         </button>
@@ -727,7 +727,7 @@ export default function Tasks() {
         )}
       </AnimatePresence>
 
-      <div className="fixed bottom-24 right-1/2 translate-x-[160px] z-10">
+      <div className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-10">
         <button 
           onClick={() => setIsAdding(true)}
           className="flex size-14 items-center justify-center rounded-full bg-[#4cb2e6] text-white shadow-lg hover:scale-105 transition-transform cursor-pointer"

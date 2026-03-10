@@ -59,9 +59,9 @@ export default function AI() {
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className="flex flex-col min-h-full bg-slate-50 dark:bg-black pb-24"
+      className="flex flex-col min-h-full bg-slate-50 dark:bg-black pb-24 md:pb-10"
     >
-      <header className="sticky top-0 z-10 flex items-center bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 pb-4 pt-safe-4 justify-between border-b border-slate-200 dark:border-slate-800">
+      <header className="sticky top-0 z-10 flex items-center bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 pb-4 pt-safe-4 justify-between border-b border-slate-200 dark:border-slate-800 md:hidden">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="text-slate-900 dark:text-slate-100 flex size-8 items-center justify-center cursor-pointer">
             <ArrowLeft className="w-5 h-5" />
@@ -494,7 +494,7 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
         </div>
       </div>
 
-      <div className="columns-2 gap-3 space-y-3">
+      <div className="columns-2 md:columns-3 gap-3 space-y-3">
         <AnimatePresence mode="popLayout">
           {sortedRecords.map((record: Record) => {
             const imageBlocks = record.blocks.filter(b => b.type === 'image');

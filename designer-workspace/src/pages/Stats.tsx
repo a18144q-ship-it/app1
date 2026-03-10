@@ -25,9 +25,9 @@ export default function Stats() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="flex flex-col min-h-full bg-white dark:bg-black pb-24"
+      className="flex flex-col min-h-full bg-white dark:bg-black pb-24 md:pb-10"
     >
-      <div className="flex items-center px-4 pt-safe-4 pb-2 justify-between sticky top-0 bg-white/80 dark:bg-black/80 backdrop-blur-md z-10">
+      <div className="flex items-center px-4 pt-safe-4 pb-2 justify-between sticky top-0 bg-white/80 dark:bg-black/80 backdrop-blur-md z-10 md:hidden">
         <button onClick={() => navigate(-1)} className="text-slate-900 dark:text-slate-100 flex size-12 shrink-0 items-center justify-start cursor-pointer">
           <ArrowLeft className="w-6 h-6" />
         </button>
