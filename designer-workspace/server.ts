@@ -22,8 +22,16 @@ async function startServer() {
   const PORT = 3000;
 
   // Socket.io logic for sync
+  const rooms = new Map<string, string>(); // roomId -> senderSocketId
+
   io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);
+
+    socket.on("create-room", (roomId) => {
+      rooms.set(roomId, socket.id);
+      socket.join(roomId);
+      console.log(`User ${socket.id} created room ${roomId}`);
+    });
 
     socket.on("join-room", (roomId) => {
       socket.join(roomId);
@@ -31,7 +39,14 @@ async function startServer() {
     });
 
     socket.on("sync-ready", (roomId) => {
-      socket.to(roomId).emit("receiver-ready");
+      const senderId = rooms.get(roomId);
+      if (senderId) {
+        // Only notify the original sender
+        io.to(senderId).emit("receiver-ready");
+      } else {
+        // Fallback for old clients or if sender is gone
+        socket.to(roomId).emit("receiver-ready");
+      }
     });
 
     socket.on("send-data", ({ roomId, data }) => {
@@ -41,6 +56,12 @@ async function startServer() {
 
     socket.on("disconnect", () => {
       console.log("User disconnected");
+      // Cleanup rooms if needed (optional since rooms are cheap, but good practice)
+      for (const [roomId, senderId] of rooms.entries()) {
+        if (senderId === socket.id) {
+          rooms.delete(roomId);
+        }
+      }
     });
   });
 

@@ -24,23 +24,49 @@ export default function Sync() {
   const [isManual, setIsManual] = useState(false);
   
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const syncIdRef = useRef<string | null>(null);
+
+  // Keep syncIdRef updated
+  useEffect(() => {
+    syncIdRef.current = syncId;
+  }, [syncId]);
 
   // Initialize socket
   useEffect(() => {
-    const newSocket = io();
+    // If running in APK (file:// or localhost), connect to the AI Studio shared URL
+    // Otherwise connect to the current origin
+    const isApkEnv = window.location.protocol === 'file:' || 
+                     window.location.hostname === 'localhost' || 
+                     window.location.hostname === '127.0.0.1';
+                     
+    const serverUrl = import.meta.env.VITE_SERVER_URL || (isApkEnv 
+      ? 'https://ais-pre-f4uq7v7qkqean52l4mgnxq-514207399885.asia-east1.run.app' 
+      : window.location.origin);
+      
+    const newSocket = io(serverUrl, {
+      transports: ['websocket', 'polling']
+    });
+    
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
-      console.log('Connected to sync server');
+      console.log('Connected to sync server at', serverUrl);
+    });
+
+    newSocket.on('connect_error', (err) => {
+      console.error('Socket connect error:', err);
+      setError('无法连接到同步服务器，请检查网络');
     });
 
     newSocket.on('receiver-ready', () => {
       setStatus('对方已就绪，正在传输数据...');
       const fullData = store.getState();
-      newSocket.emit('send-data', { roomId: syncId, data: fullData });
+      newSocket.emit('send-data', { roomId: syncIdRef.current, data: fullData });
     });
 
     newSocket.on('receive-data', (data: AppState) => {
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
       setReceivedData(data);
       setShowConfirm(true);
       setStatus('收到数据，等待确认...');
@@ -48,16 +74,14 @@ export default function Sync() {
 
     return () => {
       newSocket.disconnect();
-      if (scannerRef.current) {
-        scannerRef.current.clear();
-      }
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     };
-  }, [syncId]);
+  }, []);
 
   // Handle URL syncId
   useEffect(() => {
     const id = searchParams.get('syncId');
-    if (id) {
+    if (id && socket) {
       setSyncId(id);
       setMode('receive');
       handleManualJoin(id);
@@ -69,7 +93,7 @@ export default function Sync() {
     const id = Math.floor(100000 + Math.random() * 900000).toString();
     setSyncId(id);
     setMode('send');
-    socket?.emit('join-room', id);
+    socket?.emit('create-room', id);
     setStatus('请在另一台设备输入同步码或扫码');
   };
 
@@ -82,34 +106,68 @@ export default function Sync() {
     socket?.emit('join-room', id);
     socket?.emit('sync-ready', id);
     setStatus('已连接，正在请求数据...');
+    
+    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    syncTimeoutRef.current = setTimeout(() => {
+      setError('连接超时：找不到发送端。你是不是瞎编了一个码？');
+      setMode('selection');
+      setSyncId(null);
+      setManualCode('');
+    }, 10000);
   };
 
   const startReceiving = () => {
     setMode('receive');
     setIsManual(false);
-    setTimeout(() => {
-      const scanner = new Html5QrcodeScanner(
-        "reader",
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        /* verbose= */ false
-      );
-      scanner.render((decodedText) => {
-        try {
-          const url = new URL(decodedText);
-          const sid = url.searchParams.get('syncId');
-          if (sid) {
-            scanner.clear();
-            handleManualJoin(sid);
-          }
-        } catch (e) {
-          setError('无效的二维码');
-        }
-      }, (err) => {
-        // console.warn(err);
-      });
-      scannerRef.current = scanner;
-    }, 100);
   };
+
+  // Safe scanner initialization
+  useEffect(() => {
+    let scanner: Html5QrcodeScanner | null = null;
+    let timer: NodeJS.Timeout;
+
+    if (mode === 'receive' && !isManual && !syncId) {
+      timer = setTimeout(() => {
+        const element = document.getElementById('reader');
+        if (!element) return;
+
+        try {
+          scanner = new Html5QrcodeScanner(
+            "reader",
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            /* verbose= */ false
+          );
+          
+          scanner.render((decodedText) => {
+            try {
+              const url = new URL(decodedText);
+              const sid = url.searchParams.get('syncId');
+              if (sid) {
+                if (scanner) {
+                  scanner.clear().catch(console.error);
+                }
+                handleManualJoin(sid);
+              }
+            } catch (e) {
+              setError('无效的二维码');
+            }
+          }, (err) => {
+            // ignore
+          });
+          scannerRef.current = scanner;
+        } catch (err) {
+          console.error("Scanner init failed", err);
+        }
+      }, 100);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      if (scanner) {
+        scanner.clear().catch(console.error);
+      }
+    };
+  }, [mode, isManual, syncId]);
 
   const handleConfirmSync = () => {
     if (receivedData) {
@@ -204,7 +262,10 @@ export default function Sync() {
                 </p>
               </div>
               <button 
-                onClick={() => setMode('selection')}
+                onClick={() => {
+                  setMode('selection');
+                  setSyncId(null);
+                }}
                 className="px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-bold"
               >
                 取消发送
@@ -226,7 +287,10 @@ export default function Sync() {
                       <div id="reader" className="overflow-hidden rounded-3xl border-2 border-slate-100 dark:border-slate-800 bg-black aspect-square"></div>
                       <button 
                         onClick={() => {
-                          if (scannerRef.current) scannerRef.current.clear();
+                          if (scannerRef.current) {
+                            scannerRef.current.clear().catch(console.error);
+                            scannerRef.current = null;
+                          }
                           setIsManual(true);
                         }}
                         className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-black rounded-2xl font-bold flex items-center justify-center gap-2"
@@ -275,7 +339,11 @@ export default function Sync() {
               )}
               <button 
                 onClick={() => {
-                  if (scannerRef.current) scannerRef.current.clear();
+                  if (scannerRef.current) {
+                    scannerRef.current.clear().catch(console.error);
+                    scannerRef.current = null;
+                  }
+                  if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
                   setMode('selection');
                   setSyncId(null);
                   setManualCode('');
