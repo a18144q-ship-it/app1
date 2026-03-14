@@ -25,25 +25,26 @@ jobs:
           # 3. 重建安卓环境
           rm -rf android
           npm install @capacitor/cli @capacitor/core @capacitor/android
-          npx cap init "MyLifeApp" "com.life.record" --web-dir dist
+          # 修改了应用名称和包名
+          npx cap init "自种自收" "com.zizhongzishou.app" --web-dir dist
           npx cap add android
           
           # 4. 【核心修复】强行改写安卓配置，解决 Duplicate Class 报错
           # 修改 build.gradle 强制指定 Kotlin 版本
           sed -i 's/kotlin_version = .*/kotlin_version = "1.9.10"/' android/build.gradle
           
-          # 在 app/build.gradle 中强制排除冲突库
+          # 在 app/build.gradle 中强制排除冲突库并更新版本信息
           cat <<EOF > android/app/build.gradle.tmp
           apply plugin: 'com.android.application'
           android {
-              namespace "com.life.record"
+              namespace "com.zizhongzishou.app"
               compileSdkVersion 34
               defaultConfig {
-                  applicationId "com.life.record"
+                  applicationId "com.zizhongzishou.app"
                   minSdkVersion 22
                   targetSdkVersion 34
-                  versionCode 1
-                  versionName "1.0"
+                  versionCode 2
+                  versionName "1.01"
               }
               configurations.all {
                   resolutionStrategy {
@@ -77,5 +78,5 @@ jobs:
       - name: 📦 导出安装包
         uses: actions/upload-artifact@v4
         with:
-          name: My-App-Install-Package
+          name: 自种自收-v1.01-APK
           path: "**/app-debug.apk"
