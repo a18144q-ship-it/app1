@@ -98,7 +98,7 @@ export default function Home() {
           <RefreshCw className="w-5 h-5" />
         </button>
         <h1 className="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-tight flex-1 text-center">
-          设计师工作台
+          自种自收
         </h1>
         <div className="relative flex size-10 shrink-0 items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors" onClick={() => navigate('/stats')}>
           <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">

@@ -22,7 +22,7 @@ export default function Layout() {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 z-50">
         <div className="p-6">
-          <h1 className="text-xl font-bold text-[#4cb2e6]">AI Task</h1>
+          <h1 className="text-xl font-bold text-[#4cb2e6]">自种自收</h1>
         </div>
         <nav className="flex-1 px-4 space-y-2">
           {navItems.map((item) => (

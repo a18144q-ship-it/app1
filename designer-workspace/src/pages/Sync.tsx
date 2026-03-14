@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, QrCode, Scan, Send, Download, Check, X, Wifi, AlertTriangle, Loader2, FileUp, FileDown } from 'lucide-react';
+import { ArrowLeft, QrCode, Scan, Send, Download, Check, X, Wifi, AlertTriangle, Loader2, FileUp, FileDown, Copy, Clipboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
@@ -21,6 +21,9 @@ export default function Sync() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isManual, setIsManual] = useState(false);
+  const [showTextareaModal, setShowTextareaModal] = useState(false);
+  const [textareaData, setTextareaData] = useState('');
+  const [textareaMode, setTextareaMode] = useState<'copy' | 'paste'>('copy');
   
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -56,12 +59,18 @@ export default function Sync() {
     }
   }, [searchParams]);
 
-  const getPeerConfig = () => ({
-    host: window.location.hostname,
-    port: window.location.port ? parseInt(window.location.port) : (window.location.protocol === 'https:' ? 443 : 80),
-    path: '/peerjs/myapp',
-    secure: window.location.protocol === 'https:',
-  });
+  const getPeerConfig = () => {
+    const isAppOrLocal = !window.location.hostname || ['localhost', '127.0.0.1', ''].includes(window.location.hostname) || window.location.protocol === 'file:';
+    if (isAppOrLocal) {
+      return undefined; // 打包成APP时使用官方公共服务器
+    }
+    return {
+      host: window.location.hostname,
+      port: window.location.port ? parseInt(window.location.port) : (window.location.protocol === 'https:' ? 443 : 80),
+      path: '/peerjs/myapp',
+      secure: window.location.protocol === 'https:',
+    };
+  };
 
   const startSending = () => {
     cleanupPeer();
@@ -298,6 +307,49 @@ export default function Sync() {
     e.target.value = '';
   };
 
+  const handleCopyData = async () => {
+    const data = JSON.stringify(store.getState());
+    try {
+      await navigator.clipboard.writeText(data);
+      alert('数据代码已复制到剪贴板！请在另一台设备上选择“粘贴数据代码”。');
+    } catch (err) {
+      setTextareaData(data);
+      setTextareaMode('copy');
+      setShowTextareaModal(true);
+    }
+  };
+
+  const processImportedText = (text: string) => {
+    try {
+      const data = JSON.parse(text);
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        (store as any).replaceState(data);
+        setError(null);
+        alert('导入成功！数据已恢复。');
+        navigate('/');
+      } else {
+        setError('无效的数据格式');
+      }
+    } catch (err) {
+      setError('解析失败，请确保复制了完整的代码。');
+    }
+  };
+
+  const handlePasteData = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        processImportedText(text);
+      } else {
+        throw new Error('Clipboard empty');
+      }
+    } catch (err) {
+      setTextareaData('');
+      setTextareaMode('paste');
+      setShowTextareaModal(true);
+    }
+  };
+
   const syncUrl = syncId ? `${window.location.origin}/sync?syncId=${syncId}` : '';
 
   return (
@@ -384,6 +436,32 @@ export default function Sync() {
                     onChange={handleImportFile}
                   />
                 </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={handleCopyData}
+                  className="flex flex-col items-center gap-4 p-6 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl hover:border-blue-500 transition-all group"
+                >
+                  <div className="size-12 bg-blue-500/10 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Copy className="w-6 h-6 text-blue-500" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-md font-bold text-slate-900 dark:text-white">复制数据代码</h3>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={handlePasteData}
+                  className="flex flex-col items-center gap-4 p-6 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl hover:border-pink-500 transition-all group"
+                >
+                  <div className="size-12 bg-pink-500/10 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Clipboard className="w-6 h-6 text-pink-500" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-md font-bold text-slate-900 dark:text-white">粘贴数据代码</h3>
+                  </div>
+                </button>
               </div>
             </div>
           </motion.div>
@@ -543,6 +621,63 @@ export default function Sync() {
                   className="w-full py-4 rounded-2xl font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
                 >
                   算了，我怂了
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        {showTextareaModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 z-[100] backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl z-[101] p-6 border border-slate-100 dark:border-slate-800 flex flex-col max-h-[80vh]"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                  {textareaMode === 'copy' ? '手动复制数据' : '手动粘贴数据'}
+                </h3>
+                <button onClick={() => setShowTextareaModal(false)} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-sm text-slate-500 mb-4">
+                {textareaMode === 'copy' 
+                  ? '你的设备不支持自动复制，请手动全选下方的代码并复制。' 
+                  : '你的设备不支持自动读取剪贴板，请将代码粘贴到下方输入框中。'}
+              </p>
+              <textarea
+                value={textareaData}
+                onChange={(e) => setTextareaData(e.target.value)}
+                readOnly={textareaMode === 'copy'}
+                className="flex-1 w-full min-h-[200px] p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-[#4cb2e6] outline-none resize-none"
+                placeholder={textareaMode === 'paste' ? '在此粘贴数据代码...' : ''}
+              />
+              <div className="mt-4 flex gap-3">
+                {textareaMode === 'paste' && (
+                  <button 
+                    onClick={() => {
+                      processImportedText(textareaData);
+                      setShowTextareaModal(false);
+                    }}
+                    className="flex-1 py-3 bg-[#4cb2e6] text-white rounded-xl font-bold shadow-lg shadow-[#4cb2e6]/20 active:scale-95 transition-all"
+                  >
+                    确认导入
+                  </button>
+                )}
+                <button 
+                  onClick={() => setShowTextareaModal(false)}
+                  className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-bold active:scale-95 transition-all"
+                >
+                  关闭
                 </button>
               </div>
             </motion.div>
