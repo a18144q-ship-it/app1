@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useOutlet } from 'react-router-dom';
 import { Home, CheckSquare, Sparkles, Timer, BarChart2, RefreshCw } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../utils/cn';
 
 export default function Layout() {
   const location = useLocation();
+  const outlet = useOutlet();
 
   const navItems = [
     { to: "/", icon: Home, label: "首页" },
@@ -47,16 +48,19 @@ export default function Layout() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         <main className="flex-1 overflow-y-auto pb-24 md:pb-0">
-          <div className="max-w-5xl mx-auto w-full px-4 py-6 md:px-8 md:py-10">
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-              className="h-full"
-            >
-              <Outlet />
-            </motion.div>
+          <div className="max-w-5xl mx-auto w-full h-full px-4 py-6 md:px-8 md:py-10">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="h-full"
+              >
+                {outlet}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </main>
       </div>

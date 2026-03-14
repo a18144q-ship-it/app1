@@ -1,6 +1,6 @@
 import express from "express";
 import { createServer } from "http";
-import { Server } from "socket.io";
+import { ExpressPeerServer } from "peer";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -11,58 +11,23 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   const httpServer = createServer(app);
-  const io = new Server(httpServer, {
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
-    },
-    maxHttpBufferSize: 1e8 // 100MB for image data
-  });
 
   const PORT = 3000;
 
-  // Socket.io logic for sync
-  const rooms = new Map<string, string>(); // roomId -> senderSocketId
+  // Set up PeerJS server
+  const peerServer = ExpressPeerServer(httpServer, {
+    path: "/myapp",
+    allow_discovery: true,
+  });
 
-  io.on("connection", (socket) => {
-    console.log("A user connected:", socket.id);
+  app.use("/peerjs", peerServer);
 
-    socket.on("create-room", (roomId) => {
-      rooms.set(roomId, socket.id);
-      socket.join(roomId);
-      console.log(`User ${socket.id} created room ${roomId}`);
-    });
+  peerServer.on('connection', (client) => {
+    console.log('Peer connected:', client.getId());
+  });
 
-    socket.on("join-room", (roomId) => {
-      socket.join(roomId);
-      console.log(`User ${socket.id} joined room ${roomId}`);
-    });
-
-    socket.on("sync-ready", (roomId) => {
-      const senderId = rooms.get(roomId);
-      if (senderId) {
-        // Only notify the original sender
-        io.to(senderId).emit("receiver-ready");
-      } else {
-        // Fallback for old clients or if sender is gone
-        socket.to(roomId).emit("receiver-ready");
-      }
-    });
-
-    socket.on("send-data", ({ roomId, data }) => {
-      console.log(`Sending data to room ${roomId}`);
-      socket.to(roomId).emit("receive-data", data);
-    });
-
-    socket.on("disconnect", () => {
-      console.log("User disconnected");
-      // Cleanup rooms if needed (optional since rooms are cheap, but good practice)
-      for (const [roomId, senderId] of rooms.entries()) {
-        if (senderId === socket.id) {
-          rooms.delete(roomId);
-        }
-      }
-    });
+  peerServer.on('disconnect', (client) => {
+    console.log('Peer disconnected:', client.getId());
   });
 
   // Vite middleware for development
