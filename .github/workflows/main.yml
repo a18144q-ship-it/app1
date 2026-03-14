@@ -18,14 +18,13 @@ jobs:
           TARGET_DIR=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1 | xargs dirname)
           cd "$TARGET_DIR"
           
-          # 2. 网页端打包
+          # 2. 网页端打包 (这里会自动安装我刚加的原生分享和文件插件)
           npm install
           npm run build
           
           # 3. 重建安卓环境
           rm -rf android
           npm install @capacitor/cli @capacitor/core @capacitor/android
-          # 修改了应用名称和包名
           npx cap init "自种自收" "com.zizhongzishou.app" --web-dir dist
           npx cap add android
           
@@ -33,7 +32,15 @@ jobs:
           # 修改 build.gradle 强制指定 Kotlin 版本
           sed -i 's/kotlin_version = .*/kotlin_version = "1.9.10"/' android/build.gradle
           
-          # 在 app/build.gradle 中强制排除冲突库并更新版本信息
+          # 5. 【权限注入】添加必要的权限到 AndroidManifest.xml (解决局域网同步、扫码、分享文件没权限的问题)
+          sed -i '/<uses-permission android:name="android.permission.INTERNET" \/>/a \
+    <uses-permission android:name="android.permission.CAMERA" \/>\n\
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" \/>\n\
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" \/>\n\
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" \/>\n\
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" \/>' android/app/src/main/AndroidManifest.xml
+          
+          # 6. 在 app/build.gradle 中强制排除冲突库并更新版本信息
           cat <<EOF > android/app/build.gradle.tmp
           apply plugin: 'com.android.application'
           android {
@@ -43,8 +50,8 @@ jobs:
                   applicationId "com.zizhongzishou.app"
                   minSdkVersion 22
                   targetSdkVersion 34
-                  versionCode 2
-                  versionName "1.01"
+                  versionCode 3
+                  versionName "1.02"
               }
               configurations.all {
                   resolutionStrategy {
@@ -78,5 +85,5 @@ jobs:
       - name: 📦 导出安装包
         uses: actions/upload-artifact@v4
         with:
-          name: 自种自收-v1.01-APK
+          name: 自种自收-v1.02-APK
           path: "**/app-debug.apk"
