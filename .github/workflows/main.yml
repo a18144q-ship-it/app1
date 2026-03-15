@@ -10,21 +10,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22  # 🚀 已升级至 Node 22，满足 Capacitor 最新要求
 
       - name: 🛠️ 自动化构建与修复
         run: |
-          # 自动定位项目根目录（寻找 package.json）
+          # 自动定位项目根目录
           PACKAGE_JSON_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
           if [ -z "$PACKAGE_JSON_PATH" ]; then
-            echo "错误: 在仓库中找不到 package.json 文件！"
+            echo "错误: 找不到 package.json"
             exit 1
           fi
           PROJECT_ROOT=$(dirname "$PACKAGE_JSON_PATH")
-          echo "检测到项目目录: $PROJECT_ROOT"
           cd "$PROJECT_ROOT"
           
-          # 1. 安装依赖并构建网页端
+          # 1. 安装依赖并构建
           npm install
           npm run build
           
@@ -34,10 +33,10 @@ jobs:
           npx cap init "自种自收" "com.zizhongzishou.app" --web-dir dist
           npx cap add android
           
-          # 3. 修复 Kotlin 版本兼容性
+          # 3. 修复 Kotlin 版本
           sed -i 's/kotlin_version = .*/kotlin_version = "1.9.10"/' android/build.gradle
           
-          # 4. 注入安卓权限（逐行注入，最安全）
+          # 4. 注入权限
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i '/android.permission.INTERNET/a \    <uses-permission android:name="android.permission.CAMERA" />' $MANIFEST
           sed -i '/android.permission.CAMERA/a \    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' $MANIFEST
@@ -45,11 +44,11 @@ jobs:
           sed -i '/android.permission.ACCESS_WIFI_STATE/a \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
           sed -i '/android.permission.READ_EXTERNAL_STORAGE/a \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' $MANIFEST
           
-          # 5. 设置自动递增的版本号
+          # 5. 设置版本号
           VERSION_CODE=${{ github.run_number }}
           VERSION_NAME="1.0.${{ github.run_number }}"
           
-          # 6. 注入版本号配置
+          # 6. 注入版本配置
           cat <<EOF > android/app/build.gradle.tmp
           apply plugin: 'com.android.application'
           android {
@@ -84,7 +83,6 @@ jobs:
           
       - name: 🚀 生成 Release APK
         run: |
-          # 再次确保进入正确的目录执行安卓构建
           PACKAGE_JSON_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
           PROJECT_ROOT=$(dirname "$PACKAGE_JSON_PATH")
           cd "$PROJECT_ROOT/android"
