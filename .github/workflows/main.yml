@@ -13,6 +13,7 @@ jobs:
           node-version: 22
 
       - name: 🛠️ 自动化构建与修复
+        id: prep
         run: |
           # 自动定位项目根目录
           PACKAGE_JSON_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
@@ -21,13 +22,19 @@ jobs:
             exit 1
           fi
           PROJECT_ROOT=$(dirname "$PACKAGE_JSON_PATH")
+          echo "检测到项目目录: $PROJECT_ROOT"
+          
+          # 将路径保存到环境变量，供后续步骤使用
+          echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
+          echo "RELEASE_DIR=$PROJECT_ROOT/android/app/build/outputs/apk/release" >> $GITHUB_ENV
+          
           cd "$PROJECT_ROOT"
           
           # 1. 安装依赖并构建
           npm install
           npm run build
           
-          # 2. 【核心修复】清理旧配置，防止 npx cap init 报错
+          # 2. 清理旧配置
           rm -f capacitor.config.ts
           rm -f capacitor.config.json
           rm -rf android
@@ -48,7 +55,7 @@ jobs:
           sed -i '/android.permission.ACCESS_WIFI_STATE/a \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
           sed -i '/android.permission.READ_EXTERNAL_STORAGE/a \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' $MANIFEST
           
-          # 6. 设置自动递增的版本号
+          # 6. 设置版本号
           VERSION_CODE=${{ github.run_number }}
           VERSION_NAME="1.0.${{ github.run_number }}"
           
@@ -87,9 +94,7 @@ jobs:
           
       - name: 🚀 生成 Release APK
         run: |
-          PACKAGE_JSON_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
-          PROJECT_ROOT=$(dirname "$PACKAGE_JSON_PATH")
-          cd "$PROJECT_ROOT/android"
+          cd ${{ env.PROJECT_ROOT }}/android
           chmod +x gradlew
           ./gradlew clean assembleRelease --no-daemon
 
@@ -97,8 +102,7 @@ jobs:
         uses: r0adkll/sign-android-release@v1
         id: sign_app
         with:
-          releaseDirectory: |
-            $(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1 | xargs dirname)/android/app/build/outputs/apk/release
+          releaseDirectory: ${{ env.RELEASE_DIR }}
           signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
           alias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
