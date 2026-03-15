@@ -13,53 +13,26 @@ jobs:
           node-version: 22
 
       - name: 🛠️ 自动化构建与修复
-        id: prep
         run: |
-          # 自动定位项目根目录
           PACKAGE_JSON_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
-          if [ -z "$PACKAGE_JSON_PATH" ]; then
-            echo "错误: 找不到 package.json"
-            exit 1
-          fi
           PROJECT_ROOT=$(dirname "$PACKAGE_JSON_PATH")
-          echo "检测到项目目录: $PROJECT_ROOT"
-          
-          # 将路径保存到环境变量，供后续步骤使用
           echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
-          echo "RELEASE_DIR=$PROJECT_ROOT/android/app/build/outputs/apk/release" >> $GITHUB_ENV
           
           cd "$PROJECT_ROOT"
-          
-          # 1. 安装依赖并构建
           npm install
           npm run build
-          
-          # 2. 清理旧配置
-          rm -f capacitor.config.ts
-          rm -f capacitor.config.json
+          rm -f capacitor.config.*
           rm -rf android
-          
-          # 3. 初始化安卓环境
           npm install @capacitor/cli @capacitor/core @capacitor/android
           npx cap init "自种自收" "com.zizhongzishou.app" --web-dir dist
           npx cap add android
           
-          # 4. 修复 Kotlin 版本
           sed -i 's/kotlin_version = .*/kotlin_version = "1.9.10"/' android/build.gradle
-          
-          # 5. 注入权限
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i '/android.permission.INTERNET/a \    <uses-permission android:name="android.permission.CAMERA" />' $MANIFEST
           sed -i '/android.permission.CAMERA/a \    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' $MANIFEST
-          sed -i '/android.permission.ACCESS_NETWORK_STATE/a \    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />' $MANIFEST
-          sed -i '/android.permission.ACCESS_WIFI_STATE/a \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
-          sed -i '/android.permission.READ_EXTERNAL_STORAGE/a \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' $MANIFEST
           
-          # 6. 设置版本号
           VERSION_CODE=${{ github.run_number }}
-          VERSION_NAME="1.0.${{ github.run_number }}"
-          
-          # 7. 注入版本配置
           cat <<EOF > android/app/build.gradle.tmp
           apply plugin: 'com.android.application'
           android {
@@ -70,48 +43,48 @@ jobs:
                   minSdkVersion 22
                   targetSdkVersion 34
                   versionCode $VERSION_CODE
-                  versionName "$VERSION_NAME"
-              }
-              configurations.all {
-                  resolutionStrategy {
-                      force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.10'
-                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.10'
-                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10'
-                  }
+                  versionName "1.0.$VERSION_CODE"
               }
           }
           EOF
           cat android/app/build.gradle >> android/app/build.gradle.tmp
           mv android/app/build.gradle.tmp android/app/build.gradle
-          
           npx cap copy
           
-      - name: 设置 Java 21
+      - name: 设置 Java 17 (更稳定)
         uses: actions/setup-java@v4
         with:
-          distribution: 'microsoft'
-          java-version: '21'
+          distribution: 'temurin'
+          java-version: '17'
           
-      - name: 🚀 生成 Release APK
+      - name: 🚀 生成未签名 APK
         run: |
           cd ${{ env.PROJECT_ROOT }}/android
           chmod +x gradlew
-          ./gradlew clean assembleRelease --no-daemon
+          ./gradlew assembleRelease --no-daemon
 
-      - name: 🔐 签名 APK
-        uses: r0adkll/sign-android-release@v1
-        id: sign_app
-        with:
-          releaseDirectory: ${{ env.RELEASE_DIR }}
-          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
-          alias: ${{ secrets.KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
-        env:
-          BUILD_TOOLS_VERSION: "34.0.0"
+      - name: 🔐 手动签名 APK (官方工具链)
+        run: |
+          # 1. 解码签名文件
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+          
+          # 2. 找到生成的未签名 APK
+          UNSIGNED_APK=$(find ${{ env.PROJECT_ROOT }}/android/app/build/outputs/apk/release -name "*-unsigned.apk" | head -n 1)
+          
+          # 3. 使用 apksigner 进行签名
+          # 注意：这里直接使用 Android SDK 路径下的 apksigner
+          /usr/local/lib/android/sdk/build-tools/34.0.0/apksigner sign \
+            --ks release.keystore \
+            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
+            --ks-pass pass:"${{ secrets.KEYSTORE_PASSWORD }}" \
+            --key-pass pass:"${{ secrets.KEY_PASSWORD }}" \
+            --out release-signed.apk \
+            "$UNSIGNED_APK"
+          
+          echo "SIGNED_APK=release-signed.apk" >> $GITHUB_ENV
 
       - name: 📦 导出正式版安装包
         uses: actions/upload-artifact@v4
         with:
           name: 自种自收-正式版-V${{ github.run_number }}
-          path: ${{steps.sign_app.outputs.signedReleaseFile}}
+          path: release-signed.apk
