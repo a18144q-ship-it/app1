@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, QrCode, Scan, Send, Download, Check, X, Wifi, AlertTriangle, Loader2, FileUp, FileDown, Copy, Clipboard } from 'lucide-react';
+import { ArrowLeft, QrCode, Scan, Send, Download, Check, X, Wifi, AlertTriangle, Loader2, FileUp, FileDown, Copy, Clipboard, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
@@ -19,6 +19,7 @@ export default function Sync() {
   const [status, setStatus] = useState<string>('等待连接...');
   const [receivedData, setReceivedData] = useState<AppState | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isManual, setIsManual] = useState(false);
   const [showTextareaModal, setShowTextareaModal] = useState(false);
@@ -488,6 +489,23 @@ export default function Sync() {
                   </div>
                 </button>
               </div>
+
+              <div className="relative flex items-center py-2">
+                <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                <span className="flex-shrink-0 mx-4 text-red-500 text-sm font-bold">危险区域</span>
+                <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+              </div>
+
+              <button 
+                onClick={() => setShowResetConfirm(true)}
+                className="w-full flex items-center justify-center gap-3 p-6 bg-red-50 dark:bg-red-900/10 border-2 border-red-100 dark:border-red-900/20 rounded-3xl hover:bg-red-100 dark:hover:bg-red-900/20 transition-all group"
+              >
+                <Trash2 className="w-6 h-6 text-red-500 group-hover:scale-110 transition-transform" />
+                <div className="text-left">
+                  <h3 className="text-md font-bold text-red-600 dark:text-red-400">清除所有记录</h3>
+                  <p className="text-xs text-red-500/70">清空所有任务、灵感、琐事和统计数据</p>
+                </div>
+              </button>
             </div>
           </motion.div>
         )}
@@ -646,6 +664,50 @@ export default function Sync() {
                   className="w-full py-4 rounded-2xl font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
                 >
                   算了，我怂了
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        {showResetConfirm && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 z-[100] backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl z-[101] p-8 border border-red-100 dark:border-red-900/30 text-center"
+            >
+              <div className="text-4xl mb-4">🧨</div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-4 leading-tight">
+                彻底清空？
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">
+                这将删除你所有的任务、灵感记录和琐事。一旦执行，神仙也救不回来。你真的想重新做人吗？
+              </p>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => {
+                    (store as any).resetState();
+                    setShowResetConfirm(false);
+                    alert('已清空所有记录。你现在是一张白纸了。');
+                    navigate('/');
+                  }}
+                  className="w-full py-4 rounded-2xl font-black text-white bg-red-500 hover:bg-red-600 transition-all shadow-lg shadow-red-500/20 active:scale-95"
+                >
+                  确认清空（毁灭吧）
+                </button>
+                <button 
+                  onClick={() => setShowResetConfirm(false)}
+                  className="w-full py-4 rounded-2xl font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                >
+                  点错了，吓死我了
                 </button>
               </div>
             </motion.div>

@@ -5,6 +5,7 @@ export type TaskCategory = 'life' | 'study' | 'work';
 export type Task = {
   id: string;
   title: string;
+  description?: string;
   status: 'completed' | 'in-progress' | 'overdue' | 'pending';
   time: string;
   isLazy?: boolean;
@@ -62,10 +63,10 @@ export type AppState = {
 
 const defaultState: AppState = {
   tasks: [
-    { id: '1', title: '完成周报撰写', status: 'completed', time: '10:00 AM', category: 'work', date: new Date().toISOString().split('T')[0] },
-    { id: '2', title: '设计系统审查', status: 'in-progress', time: '14:00 PM', category: 'work', date: new Date().toISOString().split('T')[0] },
-    { id: '3', title: '更新产品路线图', status: 'overdue', time: '逾期', isLazy: true, category: 'work', date: new Date().toISOString().split('T')[0] },
-    { id: '4', title: '部门团建方案', status: 'pending', time: '17:30 PM', category: 'life', date: new Date().toISOString().split('T')[0] },
+    { id: '1', title: '完成周报撰写', description: '包含本周进度、下周计划及风险点评估', status: 'completed', time: '10:00 AM', category: 'work', date: new Date().toISOString().split('T')[0] },
+    { id: '2', title: '设计系统审查', description: '重点检查色彩规范和组件库的一致性', status: 'in-progress', time: '14:00 PM', category: 'work', date: new Date().toISOString().split('T')[0] },
+    { id: '3', title: '更新产品路线图', description: '同步 Q3 核心功能的排期', status: 'overdue', time: '逾期', isLazy: true, category: 'work', date: new Date().toISOString().split('T')[0] },
+    { id: '4', title: '部门团建方案', description: '预算 200/人，考虑密室逃脱或剧本杀', status: 'pending', time: '17:30 PM', category: 'life', date: new Date().toISOString().split('T')[0] },
     { id: '5', title: '背 50 个单词', status: 'pending', time: '20:00 PM', category: 'study', date: new Date().toISOString().split('T')[0] },
   ],
   focusSessions: [
@@ -156,6 +157,15 @@ export const store = {
   },
   replaceState: (newState: AppState) => {
     globalState = { ...newState };
+    try {
+      localStorage.setItem('app_state', JSON.stringify(globalState));
+    } catch (e) {
+      console.warn('Failed to save state to localStorage:', e);
+    }
+    listeners.forEach(listener => listener());
+  },
+  resetState: () => {
+    globalState = { ...defaultState, tasks: [], focusSessions: [], records: [], prompts: [], chores: [], consecutiveDays: 0, lastCompletionDate: null };
     try {
       localStorage.setItem('app_state', JSON.stringify(globalState));
     } catch (e) {

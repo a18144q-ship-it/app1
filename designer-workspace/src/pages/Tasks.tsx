@@ -19,9 +19,11 @@ export default function Tasks() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
   const [editTime, setEditTime] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDescription, setNewTaskDescription] = useState('');
   const [newTaskTime, setNewTaskTime] = useState('12:00');
   const [newTaskDate, setNewTaskDate] = useState(new Date().toISOString().split('T')[0]);
   const [newTaskCategory, setNewTaskCategory] = useState<TaskCategory>('work');
@@ -192,12 +194,13 @@ export default function Tasks() {
   const startEdit = (task: Task) => {
     setEditingId(task.id);
     setEditTitle(task.title);
+    setEditDescription(task.description || '');
     setEditTime(task.time.includes(':') ? task.time : '12:00');
   };
 
   const saveEdit = (id: string) => {
     if (editTitle.trim()) {
-      setState({ tasks: (state.tasks || []).map(t => t.id === id ? { ...t, title: editTitle, time: editTime } : t) });
+      setState({ tasks: (state.tasks || []).map(t => t.id === id ? { ...t, title: editTitle, description: editDescription.trim() || undefined, time: editTime } : t) });
     }
     setEditingId(null);
   };
@@ -225,6 +228,7 @@ export default function Tasks() {
         newTasksToAdd.push({
           id: `${Date.now()}-${count}-${Math.random().toString(36).substr(2, 9)}`,
           title: newTaskTitle,
+          description: newTaskDescription.trim() || undefined,
           status: 'pending',
           time: newTaskTime,
           date: current.toISOString().split('T')[0],
@@ -236,6 +240,7 @@ export default function Tasks() {
 
       setState({ tasks: [...(state.tasks || []), ...newTasksToAdd] });
       setNewTaskTitle('');
+      setNewTaskDescription('');
       setNewTaskTime('12:00');
       setNewTaskEndDate('');
       setIsDaily(false);
@@ -294,7 +299,15 @@ export default function Tasks() {
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && saveEdit(task.id)}
+                  placeholder="任务标题"
                   className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded px-2 py-1 text-sm focus:ring-2 focus:ring-[#4cb2e6]"
+                />
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="二级文字内容（可选）"
+                  className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded px-2 py-1 text-xs focus:ring-2 focus:ring-[#4cb2e6] resize-none"
+                  rows={2}
                 />
                 <div className="flex items-center gap-2">
                   <input
@@ -322,6 +335,14 @@ export default function Tasks() {
                     {task.title}
                   </p>
                 </div>
+                {task.description && (
+                  <p className={cn(
+                    "text-xs mt-1 line-clamp-2 pl-4",
+                    task.status === 'completed' ? "text-slate-400/60 line-through" : "text-slate-500 dark:text-slate-400"
+                  )}>
+                    {task.description}
+                  </p>
+                )}
                 {task.category && (
                   <span 
                     className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium w-fit mt-1", CATEGORY_COLORS[task.category])} 
@@ -606,8 +627,14 @@ export default function Tasks() {
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addTask()}
-                placeholder="输入新任务..."
+                placeholder="输入新任务标题..."
                 className="flex-1 bg-slate-100 dark:bg-slate-800 border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#4cb2e6] outline-none"
+              />
+              <textarea
+                value={newTaskDescription}
+                onChange={(e) => setNewTaskDescription(e.target.value)}
+                placeholder="二级文字内容（例如：具体步骤、备注等，可选）..."
+                className="flex-1 bg-slate-100 dark:bg-slate-800 border-none rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-[#4cb2e6] outline-none resize-none min-h-[60px]"
               />
               <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2">
