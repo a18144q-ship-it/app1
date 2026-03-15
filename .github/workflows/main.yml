@@ -14,6 +14,16 @@ jobs:
 
       - name: 🛠️ 自动化构建与修复
         run: |
+          # 自动定位项目根目录（寻找 package.json）
+          PACKAGE_JSON_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
+          if [ -z "$PACKAGE_JSON_PATH" ]; then
+            echo "错误: 在仓库中找不到 package.json 文件！"
+            exit 1
+          fi
+          PROJECT_ROOT=$(dirname "$PACKAGE_JSON_PATH")
+          echo "检测到项目目录: $PROJECT_ROOT"
+          cd "$PROJECT_ROOT"
+          
           # 1. 安装依赖并构建网页端
           npm install
           npm run build
@@ -27,9 +37,13 @@ jobs:
           # 3. 修复 Kotlin 版本兼容性
           sed -i 's/kotlin_version = .*/kotlin_version = "1.9.10"/' android/build.gradle
           
-          # 4. 【安全修复】添加安卓权限（改用单行命令，避免 YAML 缩进错误）
-          PERMS='<uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />'
-          sed -i "/<uses-permission android:name=\"android.permission.INTERNET\" \/>/a \    $PERMS" android/app/src/main/AndroidManifest.xml
+          # 4. 注入安卓权限（逐行注入，最安全）
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i '/android.permission.INTERNET/a \    <uses-permission android:name="android.permission.CAMERA" />' $MANIFEST
+          sed -i '/android.permission.CAMERA/a \    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' $MANIFEST
+          sed -i '/android.permission.ACCESS_NETWORK_STATE/a \    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />' $MANIFEST
+          sed -i '/android.permission.ACCESS_WIFI_STATE/a \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
+          sed -i '/android.permission.READ_EXTERNAL_STORAGE/a \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' $MANIFEST
           
           # 5. 设置自动递增的版本号
           VERSION_CODE=${{ github.run_number }}
@@ -70,7 +84,10 @@ jobs:
           
       - name: 🚀 生成 Release APK
         run: |
-          cd android
+          # 再次确保进入正确的目录执行安卓构建
+          PACKAGE_JSON_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
+          PROJECT_ROOT=$(dirname "$PACKAGE_JSON_PATH")
+          cd "$PROJECT_ROOT/android"
           chmod +x gradlew
           ./gradlew clean assembleRelease --no-daemon
 
@@ -78,7 +95,8 @@ jobs:
         uses: r0adkll/sign-android-release@v1
         id: sign_app
         with:
-          releaseDirectory: android/app/build/outputs/apk/release
+          releaseDirectory: |
+            $(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1 | xargs dirname)/android/app/build/outputs/apk/release
           signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
           alias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
