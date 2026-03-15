@@ -10,7 +10,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22  # 🚀 已升级至 Node 22，满足 Capacitor 最新要求
+          node-version: 22
 
       - name: 🛠️ 自动化构建与修复
         run: |
@@ -27,16 +27,20 @@ jobs:
           npm install
           npm run build
           
-          # 2. 初始化安卓环境
+          # 2. 【核心修复】清理旧配置，防止 npx cap init 报错
+          rm -f capacitor.config.ts
+          rm -f capacitor.config.json
           rm -rf android
+          
+          # 3. 初始化安卓环境
           npm install @capacitor/cli @capacitor/core @capacitor/android
           npx cap init "自种自收" "com.zizhongzishou.app" --web-dir dist
           npx cap add android
           
-          # 3. 修复 Kotlin 版本
+          # 4. 修复 Kotlin 版本
           sed -i 's/kotlin_version = .*/kotlin_version = "1.9.10"/' android/build.gradle
           
-          # 4. 注入权限
+          # 5. 注入权限
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i '/android.permission.INTERNET/a \    <uses-permission android:name="android.permission.CAMERA" />' $MANIFEST
           sed -i '/android.permission.CAMERA/a \    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' $MANIFEST
@@ -44,11 +48,11 @@ jobs:
           sed -i '/android.permission.ACCESS_WIFI_STATE/a \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
           sed -i '/android.permission.READ_EXTERNAL_STORAGE/a \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' $MANIFEST
           
-          # 5. 设置版本号
+          # 6. 设置自动递增的版本号
           VERSION_CODE=${{ github.run_number }}
           VERSION_NAME="1.0.${{ github.run_number }}"
           
-          # 6. 注入版本配置
+          # 7. 注入版本配置
           cat <<EOF > android/app/build.gradle.tmp
           apply plugin: 'com.android.application'
           android {
