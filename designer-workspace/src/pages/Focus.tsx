@@ -258,7 +258,7 @@ export default function Focus() {
               <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
                 {taskName}
               </h2>
-              <Edit2 className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <Edit2 className="w-4 h-4 text-slate-400 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
             </div>
           )}
         </div>

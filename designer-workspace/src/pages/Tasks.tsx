@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MoreHorizontal, Plus, Trash2, Edit2, Check, X, History, Calendar } from 'lucide-react';
 import { cn } from '../utils/cn';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react';
 import { useAppStore, Task, TaskCategory } from '../store';
+import { SwipeableTaskItem } from '../components/SwipeableTaskItem';
 
 export default function Tasks() {
   const navigate = useNavigate();
@@ -268,16 +269,12 @@ export default function Tasks() {
     const isEditing = editingId === task.id;
 
     return (
-      <motion.div
-        layout
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95 }}
+      <SwipeableTaskItem
         key={task.id}
-        className={cn(
-          "flex items-center gap-4 px-2 min-h-[72px] py-3 justify-between border-b border-slate-50 dark:border-slate-800/50 group",
-          task.status === 'overdue' ? "bg-red-50/30 dark:bg-red-900/10 rounded-xl border border-red-100/50 dark:border-red-900/20" : "bg-white dark:bg-black"
-        )}
+        task={task}
+        isEditing={isEditing}
+        onEdit={() => startEdit(task)}
+        onDelete={() => deleteTask(task.id)}
       >
         <div className="flex items-center gap-4 flex-1">
           <div className="flex size-6 items-center justify-center shrink-0">
@@ -375,9 +372,9 @@ export default function Tasks() {
         </div>
         {!isEditing && (
           <div className="flex items-center gap-2 shrink-0">
-            <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => startEdit(task)} className="p-1.5 text-slate-400 hover:text-[#4cb2e6]"><Edit2 className="w-4 h-4" /></button>
-              <button onClick={() => deleteTask(task.id)} className="p-1.5 text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+            <div className="hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={() => startEdit(task)} className="p-2.5 text-slate-400 hover:text-[#4cb2e6] active:scale-95 transition-transform"><Edit2 className="w-4 h-4" /></button>
+              <button onClick={() => deleteTask(task.id)} className="p-2.5 text-slate-400 hover:text-red-500 active:scale-95 transition-transform"><Trash2 className="w-4 h-4" /></button>
             </div>
             <p className={cn(
               "text-sm font-normal",
@@ -387,7 +384,7 @@ export default function Tasks() {
             </p>
           </div>
         )}
-      </motion.div>
+      </SwipeableTaskItem>
     );
   };
 

@@ -417,7 +417,7 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
               ) : (
                 <div className="relative w-full rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 mt-2">
                   <img src={block.content} alt="preview" className="w-full h-auto max-h-[300px] object-cover" />
-                  <button onClick={() => removeDraftBlock(block.id)} className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1.5 hover:bg-red-500 transition-colors cursor-pointer opacity-0 group-hover:opacity-100">
+                  <button onClick={() => removeDraftBlock(block.id)} className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1.5 hover:bg-red-500 transition-colors cursor-pointer opacity-100 md:opacity-0 md:group-hover:opacity-100">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -542,7 +542,7 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
                       ))}
                     </div>
                     {imageBlocks.length > 1 && (
-                      <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2 pointer-events-none opacity-0 group-hover/slider:opacity-100 transition-opacity">
+                      <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2 pointer-events-none opacity-100 md:opacity-0 md:group-hover/slider:opacity-100 transition-opacity">
                         <button 
                           className="size-6 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm flex items-center justify-center text-white pointer-events-auto cursor-pointer transition-colors"
                           onClick={(e) => {
@@ -588,7 +588,7 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
                           ) : (
                             <div className="relative w-full rounded overflow-hidden border border-slate-200 dark:border-slate-700">
                               <img src={block.content} alt="preview" className="w-full h-auto object-cover" />
-                              <button onClick={() => removeEditBlock(block.id)} className="absolute top-1 right-1 bg-black/50 text-white rounded p-1 hover:bg-red-500 transition-colors cursor-pointer opacity-0 group-hover/block:opacity-100">
+                              <button onClick={() => removeEditBlock(block.id)} className="absolute top-1 right-1 bg-black/50 text-white rounded p-1 hover:bg-red-500 transition-colors cursor-pointer opacity-100 md:opacity-0 md:group-hover/block:opacity-100">
                                 <X className="w-3 h-3" />
                               </button>
                             </div>
@@ -635,12 +635,12 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
                       <span className={cn("text-[10px] font-medium uppercase tracking-wider", isTextOnly ? "text-[#4cb2e6] font-bold" : "text-slate-400")}>
                         {isTextOnly ? '摘录' : record.date}
                       </span>
-                      <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
-                        <button onClick={(e) => { e.stopPropagation(); togglePin(record.id); }} className={cn("p-1 hover:text-[#4cb2e6]", record.isPinned ? "text-[#4cb2e6]" : "text-slate-400")}>
-                          <Pin className={cn("w-3 h-3", record.isPinned && "fill-current")} />
+                      <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity gap-1">
+                        <button onClick={(e) => { e.stopPropagation(); togglePin(record.id); }} className={cn("p-2.5 hover:text-[#4cb2e6] active:scale-95 transition-transform", record.isPinned ? "text-[#4cb2e6]" : "text-slate-400")}>
+                          <Pin className={cn("w-4 h-4", record.isPinned && "fill-current")} />
                         </button>
-                        <button onClick={(e) => { e.stopPropagation(); startEdit(record); }} className="p-1 text-slate-400 hover:text-[#4cb2e6]"><Edit2 className="w-3 h-3" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); deleteRecord(record.id); }} className="p-1 text-slate-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); startEdit(record); }} className="p-2.5 text-slate-400 hover:text-[#4cb2e6] active:scale-95 transition-transform"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); deleteRecord(record.id); }} className="p-2.5 text-slate-400 hover:text-red-500 active:scale-95 transition-transform"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
                   )}
@@ -907,9 +907,9 @@ function PromptLibrary({ state, setState }: { state: any, setState: any }) {
                   <div className="cursor-pointer">
                     <div className="flex items-start justify-between">
                       <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-1 group-hover:text-[#4cb2e6] transition-colors">{prompt.title}</h3>
-                      <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
-                        <button onClick={(e) => { e.stopPropagation(); startEdit(prompt); }} className="p-1 text-slate-400 hover:text-[#4cb2e6] cursor-pointer"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); deletePrompt(prompt.id); }} className="p-1 text-slate-400 hover:text-red-500 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                      <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity gap-1">
+                        <button onClick={(e) => { e.stopPropagation(); startEdit(prompt); }} className="p-2.5 text-slate-400 hover:text-[#4cb2e6] cursor-pointer active:scale-95 transition-transform"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); deletePrompt(prompt.id); }} className="p-2.5 text-slate-400 hover:text-red-500 cursor-pointer active:scale-95 transition-transform"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
                     <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed italic line-clamp-2">
@@ -1080,7 +1080,7 @@ function DailyChores({ state, setState }: { state: any, setState: any }) {
               </div>
               <button 
                 onClick={() => deleteChore(chore.id)}
-                className="p-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                className="p-2 text-slate-400 hover:text-red-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
