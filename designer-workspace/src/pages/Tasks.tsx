@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MoreHorizontal, Plus, Trash2, Edit2, Check, X, History, Calendar } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react';
-import { useAppStore, Task, TaskCategory } from '../store';
+import { useAppStore, Task, TaskCategory, fb } from '../store';
 import { SwipeableTaskItem } from '../components/SwipeableTaskItem';
 
 export default function Tasks() {
@@ -99,7 +99,7 @@ export default function Tasks() {
 
     if (task.status === 'completed') {
       // Uncompleting is simple
-      const newTasks = (state.tasks || []).map(t => t.id === id ? { ...t, status: 'pending' } as Task : t);
+      fb.updateTask(id, { status: 'pending' });
       
       // If we uncomplete a task today, we should clear lastCompletionDate if it was today
       // so the user can get the completion dialog again when they complete all tasks.
@@ -114,13 +114,10 @@ export default function Tasks() {
         const newConsecutiveDays = Math.max(0, state.consecutiveDays - 1);
         
         setState({ 
-          tasks: newTasks,
           lastCompletionDate: yesterdayStr,
           consecutiveDays: newConsecutiveDays,
           lazyTitle: newConsecutiveDays < 7 ? '试图自救的烂泥' : '正常人'
         });
-      } else {
-        setState({ tasks: newTasks });
       }
     } else {
       // Completing triggers toxic confirm
@@ -143,15 +140,14 @@ export default function Tasks() {
     
     const today = new Date().toISOString().split('T')[0];
     const task = (state.tasks || []).find(t => t.id === pendingTaskId);
-    const newTasks = (state.tasks || []).map(t => t.id === pendingTaskId ? { ...t, status: 'completed' } as Task : t);
-    setState({ tasks: newTasks });
+    fb.updateTask(pendingTaskId, { status: 'completed' });
     setShowToxicConfirm(false);
     setPendingTaskId(null);
 
     if (task) {
       if (task.groupId) {
-        const groupTasks = newTasks.filter(t => t.groupId === task.groupId);
-        const allCompleted = groupTasks.every(t => t.status === 'completed' || t.status === 'waste');
+        const groupTasks = (state.tasks || []).filter(t => t.groupId === task.groupId);
+        const allCompleted = groupTasks.every(t => t.id === pendingTaskId ? true : (t.status === 'completed' || t.status === 'waste'));
         if (allCompleted) {
           generateTaskSummary(task);
         }
@@ -161,8 +157,9 @@ export default function Tasks() {
     }
 
     // Check if all today's tasks are completed
-    const todayTasks = newTasks.filter(t => t.date === today);
-    if (todayTasks.length > 0 && todayTasks.every(t => t.status === 'completed')) {
+    const todayTasks = (state.tasks || []).filter(t => t.date === today);
+    const allTodayCompleted = todayTasks.every(t => t.id === pendingTaskId ? true : t.status === 'completed');
+    if (todayTasks.length > 0 && allTodayCompleted) {
       if (state.lastCompletionDate !== today) {
         setShowCompletionDialog(true);
       }
@@ -202,7 +199,7 @@ export default function Tasks() {
   };
 
   const deleteTask = (id: string) => {
-    setState({ tasks: (state.tasks || []).filter(t => t.id !== id) });
+    fb.deleteTask(id);
   };
 
   const startEdit = (task: Task) => {
@@ -220,12 +217,11 @@ export default function Tasks() {
         { id: `b-${Date.now()}`, type: 'text' as const, content: `我已经完成了任务：${task.title}。\n${task.description || ''}` }
       ],
       date: new Date().toISOString().split('T')[0],
-      tags: ['任务总结', task.category || '未分类']
+      tags: ['任务总结', task.category || '未分类'],
+      type: 'summary' as const
     };
-    setState({ 
-      summaries: [newRecord, ...(state.summaries || [])],
-      aiActiveTab: 'summary'
-    });
+    fb.addRecord(newRecord);
+    setState({ aiActiveTab: 'summary' });
     showToast('已生成任务总结，可前往 AI 栏目查看');
   };
 
@@ -235,20 +231,17 @@ export default function Tasks() {
       return;
     }
     const today = new Date().toISOString().split('T')[0];
-    const newTasks = (state.tasks || []).map(t => {
-      if (t.groupId === task.groupId && t.date && t.date >= today && t.status !== 'completed' && t.status !== 'waste') {
-        return { ...t, status: 'completed' as const };
-      }
-      return t;
+    const groupTasks = (state.tasks || []).filter(t => t.groupId === task.groupId && t.date && t.date >= today && t.status !== 'completed' && t.status !== 'waste');
+    groupTasks.forEach(t => {
+      fb.updateTask(t.id, { status: 'completed' });
     });
-    setState({ tasks: newTasks });
     setEditingId(null);
     generateTaskSummary(task);
   };
 
   const saveEdit = (id: string) => {
     if (editTitle.trim()) {
-      setState({ tasks: (state.tasks || []).map(t => t.id === id ? { ...t, title: editTitle, description: editDescription.trim() || undefined, time: editTime } : t) });
+      fb.updateTask(id, { title: editTitle, description: editDescription.trim() || undefined, time: editTime });
     }
     setEditingId(null);
   };
@@ -274,7 +267,7 @@ export default function Tasks() {
       let count = 0;
 
       while (current <= actualEnd && count < maxDays) {
-        newTasksToAdd.push({
+        const newTask: Task = {
           id: `${Date.now()}-${count}-${Math.random().toString(36).substr(2, 9)}`,
           title: newTaskTitle,
           description: newTaskDescription.trim() || undefined,
@@ -283,12 +276,13 @@ export default function Tasks() {
           date: current.toISOString().split('T')[0],
           category: newTaskCategory,
           groupId: groupId,
-        });
+        };
+        newTasksToAdd.push(newTask);
+        fb.addTask(newTask);
         current.setDate(current.getDate() + 1);
         count++;
       }
 
-      setState({ tasks: [...(state.tasks || []), ...newTasksToAdd] });
       setNewTaskTitle('');
       setNewTaskDescription('');
       setNewTaskTime('12:00');
@@ -305,7 +299,8 @@ export default function Tasks() {
   };
 
   const clearCompleted = () => {
-    setState({ tasks: (state.tasks || []).filter(t => t.status !== 'completed') });
+    const completedTasks = (state.tasks || []).filter(t => t.status === 'completed');
+    completedTasks.forEach(t => fb.deleteTask(t.id));
     setShowMenu(false);
   };
 

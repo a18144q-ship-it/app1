@@ -6,6 +6,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { FirebaseProvider, useFirebase } from './context/FirebaseContext';
+import AuthScreen from './components/AuthScreen';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Tasks from './pages/Tasks';
@@ -14,23 +16,41 @@ import Focus from './pages/Focus';
 import Stats from './pages/Stats';
 import Sync from './pages/Sync';
 
+function AppContent() {
+  const { user, loading } = useFirebase();
+
+  if (loading) {
+    return <AuthScreen />;
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Home />} />
+          <Route path="tasks" element={<Tasks />} />
+          <Route path="ai" element={<AI />} />
+          <Route path="focus" element={<Focus />} />
+          <Route path="stats" element={<Stats />} />
+          <Route path="sync" element={<Sync />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Home />} />
-              <Route path="tasks" element={<Tasks />} />
-              <Route path="ai" element={<AI />} />
-              <Route path="focus" element={<Focus />} />
-              <Route path="stats" element={<Stats />} />
-              <Route path="sync" element={<Sync />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
+        <FirebaseProvider>
+          <AppContent />
+        </FirebaseProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

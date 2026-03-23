@@ -1,4 +1,7 @@
 import { useState, useEffect, useSyncExternalStore } from 'react';
+import { db, auth } from './firebase';
+import { handleFirestoreError, OperationType } from './utils/firestoreErrorHandler';
+import { doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 
 export type TaskCategory = 'life' | 'study' | 'work';
 
@@ -12,12 +15,14 @@ export type Task = {
   date?: string;
   category?: TaskCategory;
   groupId?: string;
+  userId?: string;
 };
 
 export type FocusSession = {
   id: string;
   duration: number; // in minutes
   date: string;
+  userId?: string;
 };
 
 export type RecordBlock = {
@@ -34,6 +39,8 @@ export type Record = {
   tags?: string[];
   link?: string;
   isPinned?: boolean;
+  type?: 'record' | 'summary';
+  userId?: string;
 };
 
 export type Prompt = {
@@ -42,12 +49,14 @@ export type Prompt = {
   content: string;
   tag: string;
   images?: string[];
+  userId?: string;
 };
 
 export type Chore = {
   id: string;
   text: string;
   completed: boolean;
+  userId?: string;
 };
 
 export type AppState = {
@@ -64,80 +73,19 @@ export type AppState = {
 };
 
 const defaultState: AppState = {
-  tasks: [
-    { id: '1', title: '完成周报撰写', description: '包含本周进度、下周计划及风险点评估', status: 'completed', time: '10:00 AM', category: 'work', date: new Date().toISOString().split('T')[0] },
-    { id: '2', title: '设计系统审查', description: '重点检查色彩规范和组件库的一致性', status: 'in-progress', time: '14:00 PM', category: 'work', date: new Date().toISOString().split('T')[0] },
-    { id: '3', title: '更新产品路线图', description: '同步 Q3 核心功能的排期', status: 'overdue', time: '逾期', isLazy: true, category: 'work', date: new Date().toISOString().split('T')[0] },
-    { id: '4', title: '部门团建方案', description: '预算 200/人，考虑密室逃脱或剧本杀', status: 'pending', time: '17:30 PM', category: 'life', date: new Date().toISOString().split('T')[0] },
-    { id: '5', title: '背 50 个单词', status: 'pending', time: '20:00 PM', category: 'study', date: new Date().toISOString().split('T')[0] },
-  ],
-  focusSessions: [
-    { id: 'f1', duration: 25, date: new Date().toISOString().split('T')[0] },
-    { id: 'f2', duration: 25, date: new Date().toISOString().split('T')[0] },
-  ],
+  tasks: [],
+  focusSessions: [],
   consecutiveDays: 0,
   lastCompletionDate: null,
   lazyTitle: '懒狗',
-  records: [
-    {
-      id: '1',
-      title: '极简建筑线条研究',
-      blocks: [
-        { id: 'b1', type: 'image', content: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2564&auto=format&fit=crop' },
-        { id: 'b2', type: 'text', content: '这种几何结构的透视感非常有张力，可以运用在UI排版中。' }
-      ],
-      date: '2023-11-05'
-    },
-    {
-      id: '2',
-      blocks: [
-        { id: 'b3', type: 'text', content: '“设计不仅是关于如何看，更是关于如何去感受。每一个像素背后都应该有一个为了解决问题而存在的故事。”' }
-      ],
-      date: '2023-11-04'
-    },
-    {
-      id: '3',
-      title: '配色方案：莫兰迪2.0',
-      blocks: [
-        { id: 'b4', type: 'image', content: 'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2564&auto=format&fit=crop' }
-      ],
-      date: '2023-11-02'
-    }
-  ],
+  records: [],
   summaries: [],
-  prompts: [
-    {
-      id: '1',
-      title: '莫兰迪色调静物',
-      content: 'A high-quality 3D render of minimalist ceramic vases in Morandi color palette, soft natural lighting, elegant composition, 8k resolution.',
-      tag: '3D Render',
-      images: ['https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop']
-    },
-    {
-      id: '2',
-      title: '极简主义建筑摄影',
-      content: 'Minimalist architecture photography, concrete walls, sharp shadows, clear blue sky, wide angle, cinematic lighting, ultra-minimalist style.',
-      tag: 'Architecture',
-      images: ['https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2564&auto=format&fit=crop']
-    }
-  ],
-  chores: [
-    { id: '1', text: '买牛奶和全麦面包', completed: false },
-    { id: '2', text: '取快递（丰巢柜）', completed: true },
-    { id: '3', text: '给绿萝浇水', completed: false },
-    { id: '4', text: '回复房东微信', completed: false },
-  ],
+  prompts: [],
+  chores: [],
   aiActiveTab: 'record',
 };
 
 let globalState: AppState = { ...defaultState };
-
-try {
-  const saved = localStorage.getItem('app_state');
-  if (saved) {
-    globalState = { ...defaultState, ...JSON.parse(saved) };
-  }
-} catch (e) {}
 
 const listeners = new Set<() => void>();
 
@@ -145,11 +93,21 @@ export const store = {
   getState: () => globalState,
   setState: (newState: Partial<AppState>) => {
     globalState = { ...globalState, ...newState };
-    try {
-      localStorage.setItem('app_state', JSON.stringify(globalState));
-    } catch (e) {
-      console.warn('Failed to save state to localStorage:', e);
+    
+    // Sync scalar values to user profile if they changed
+    if (auth.currentUser) {
+      const uid = auth.currentUser.uid;
+      const updates: any = {};
+      if (newState.consecutiveDays !== undefined) updates.consecutiveDays = newState.consecutiveDays;
+      if (newState.lastCompletionDate !== undefined) updates.lastCompletionDate = newState.lastCompletionDate;
+      if (newState.lazyTitle !== undefined) updates.lazyTitle = newState.lazyTitle;
+      if (newState.aiActiveTab !== undefined) updates.aiActiveTab = newState.aiActiveTab;
+      
+      if (Object.keys(updates).length > 0) {
+        updateDoc(doc(db, 'users', uid), updates).catch(e => handleFirestoreError(e, OperationType.UPDATE, `users/${uid}`));
+      }
     }
+    
     listeners.forEach(listener => listener());
   },
   subscribe: (listener: () => void) => {
@@ -160,20 +118,10 @@ export const store = {
   },
   replaceState: (newState: AppState) => {
     globalState = { ...newState };
-    try {
-      localStorage.setItem('app_state', JSON.stringify(globalState));
-    } catch (e) {
-      console.warn('Failed to save state to localStorage:', e);
-    }
     listeners.forEach(listener => listener());
   },
   resetState: () => {
-    globalState = { ...defaultState, tasks: [], focusSessions: [], records: [], prompts: [], chores: [], consecutiveDays: 0, lastCompletionDate: null };
-    try {
-      localStorage.setItem('app_state', JSON.stringify(globalState));
-    } catch (e) {
-      console.warn('Failed to save state to localStorage:', e);
-    }
+    globalState = { ...defaultState };
     listeners.forEach(listener => listener());
   }
 };
@@ -182,3 +130,141 @@ export function useAppStore() {
   const state = useSyncExternalStore(store.subscribe, store.getState);
   return [state, store.setState] as const;
 }
+
+// Firebase helper functions for CRUD operations
+export const fb = {
+  addTask: async (task: Task) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const path = `users/${uid}/tasks`;
+    try {
+      await setDoc(doc(db, path, task.id), { ...task, userId: uid });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, path);
+    }
+  },
+  updateTask: async (id: string, updates: Partial<Task>) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const path = `users/${uid}/tasks`;
+    try {
+      await updateDoc(doc(db, path, id), updates);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, path);
+    }
+  },
+  deleteTask: async (id: string) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const path = `users/${uid}/tasks`;
+    try {
+      await deleteDoc(doc(db, path, id));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, path);
+    }
+  },
+  
+  addFocusSession: async (session: FocusSession) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const path = `users/${uid}/focusSessions`;
+    try {
+      await setDoc(doc(db, path, session.id), { ...session, userId: uid });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, path);
+    }
+  },
+  
+  addRecord: async (record: Record) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const path = `users/${uid}/records`;
+    try {
+      await setDoc(doc(db, path, record.id), { ...record, userId: uid });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, path);
+    }
+  },
+  updateRecord: async (id: string, updates: Partial<Record>) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const path = `users/${uid}/records`;
+    try {
+      await updateDoc(doc(db, path, id), updates);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, path);
+    }
+  },
+  deleteRecord: async (id: string) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const path = `users/${uid}/records`;
+    try {
+      await deleteDoc(doc(db, path, id));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, path);
+    }
+  },
+  
+  addPrompt: async (prompt: Prompt) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const path = `users/${uid}/prompts`;
+    try {
+      await setDoc(doc(db, path, prompt.id), { ...prompt, userId: uid });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, path);
+    }
+  },
+  updatePrompt: async (id: string, updates: Partial<Prompt>) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const path = `users/${uid}/prompts`;
+    try {
+      await updateDoc(doc(db, path, id), updates);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, path);
+    }
+  },
+  deletePrompt: async (id: string) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const path = `users/${uid}/prompts`;
+    try {
+      await deleteDoc(doc(db, path, id));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, path);
+    }
+  },
+  
+  addChore: async (chore: Chore) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const path = `users/${uid}/chores`;
+    try {
+      await setDoc(doc(db, path, chore.id), { ...chore, userId: uid });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, path);
+    }
+  },
+  updateChore: async (id: string, updates: Partial<Chore>) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const path = `users/${uid}/chores`;
+    try {
+      await updateDoc(doc(db, path, id), updates);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, path);
+    }
+  },
+  deleteChore: async (id: string) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const path = `users/${uid}/chores`;
+    try {
+      await deleteDoc(doc(db, path, id));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, path);
+    }
+  }
+};

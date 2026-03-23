@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Settings, Play, Pause, Square, Edit2, Check, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../utils/cn';
-import { useAppStore } from '../store';
+import { useAppStore, fb } from '../store';
 
 export default function Focus() {
   const navigate = useNavigate();
@@ -109,7 +109,7 @@ export default function Focus() {
         duration: workDuration,
         date: new Date().toISOString().split('T')[0]
       };
-      setState({ focusSessions: [...state.focusSessions, newSession] });
+      fb.addFocusSession(newSession);
     }
     
     return () => {

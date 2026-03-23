@@ -4,7 +4,7 @@ import { Sparkles, Search, Plus, Image as ImageIcon, Link2, Tag, MoreHorizontal,
 import { cn } from '../utils/cn';
 import { motion, AnimatePresence } from 'motion/react';
 
-import { useAppStore, Record, RecordBlock, Prompt, Chore } from '../store';
+import { useAppStore, Record, RecordBlock, Prompt, Chore, fb } from '../store';
 
 function ConfirmModal({ isOpen, message, onConfirm, onCancel }: { isOpen: boolean, message: string, onConfirm: () => void, onCancel: () => void }) {
   return (
@@ -337,6 +337,7 @@ function InspirationRecord({ state, setState, type = 'record' }: { state: any, s
 
     const newRecord: Record = {
       id: Date.now().toString(),
+      type: type,
       title: newTitle.trim() || undefined,
       blocks: validBlocks,
       date: new Date().toISOString().split('T')[0],
@@ -344,13 +345,7 @@ function InspirationRecord({ state, setState, type = 'record' }: { state: any, s
       link: newLink || undefined,
     };
     
-    // Use state.records directly to avoid any closure issues and ensure it's an array
-    const currentRecords = type === 'record' ? (state.records || []) : (state.summaries || []);
-    if (type === 'record') {
-      setState({ records: [newRecord, ...currentRecords] });
-    } else {
-      setState({ summaries: [newRecord, ...currentRecords] });
-    }
+    fb.addRecord(newRecord);
     
     setDraftBlocks([{ id: `b-${Date.now()}-${Math.random()}`, type: 'text', content: '' }]);
     setNewTitle('');
@@ -362,11 +357,7 @@ function InspirationRecord({ state, setState, type = 'record' }: { state: any, s
   };
 
   const deleteRecord = (id: string) => {
-    if (type === 'record') {
-      setState({ records: (state.records || []).filter((r: Record) => r.id !== id) });
-    } else {
-      setState({ summaries: (state.summaries || []).filter((r: Record) => r.id !== id) });
-    }
+    fb.deleteRecord(id);
   };
 
   const startEdit = (record: Record) => {
@@ -379,20 +370,16 @@ function InspirationRecord({ state, setState, type = 'record' }: { state: any, s
     if (validBlocks.length === 0) {
       deleteRecord(id);
     } else {
-      if (type === 'record') {
-        setState({ records: (state.records || []).map((r: Record) => r.id === id ? { ...r, blocks: validBlocks } : r) });
-      } else {
-        setState({ summaries: (state.summaries || []).map((r: Record) => r.id === id ? { ...r, blocks: validBlocks } : r) });
-      }
+      fb.updateRecord(id, { blocks: validBlocks });
     }
     setEditingId(null);
   };
 
   const togglePin = (id: string) => {
-    if (type === 'record') {
-      setState({ records: (state.records || []).map((r: Record) => r.id === id ? { ...r, isPinned: !r.isPinned } : r) });
-    } else {
-      setState({ summaries: (state.summaries || []).map((r: Record) => r.id === id ? { ...r, isPinned: !r.isPinned } : r) });
+    const records = type === 'record' ? (state.records || []) : (state.summaries || []);
+    const record = records.find(r => r.id === id);
+    if (record) {
+      fb.updateRecord(id, { isPinned: !record.isPinned });
     }
   };
 
@@ -894,23 +881,23 @@ function PromptLibrary({ state, setState }: { state: any, setState: any }) {
     }
 
     if (editingId) {
-      setState({ prompts: (state.prompts || []).map((p: Prompt) => p.id === editingId ? { ...p, title, content, tag: editTag || 'General', images: editImages.length > 0 ? editImages : undefined } : p) });
+      fb.updatePrompt(editingId, { title, content, tag: editTag || 'General', images: editImages.length > 0 ? editImages : undefined });
       showToast("修改成功！✨");
     } else {
-      setState({ prompts: [{
+      fb.addPrompt({
         id: `p-${Date.now()}-${Math.random()}`,
         title,
         content,
         tag: editTag || 'General',
         images: editImages.length > 0 ? editImages : undefined,
-      }, ...(state.prompts || [])] });
+      });
       showToast("添加成功！✨");
     }
     setIsAdding(false);
   };
 
   const deletePrompt = (id: string) => {
-    setState({ prompts: (state.prompts || []).filter((p: Prompt) => p.id !== id) });
+    fb.deletePrompt(id);
   };
 
   const copyToClipboard = (text: string) => {
@@ -1129,7 +1116,7 @@ function DailyChores({ state, setState }: { state: any, setState: any }) {
 
   const addChore = () => {
     if (newChore.trim()) {
-      setState({ chores: [{ id: `c-${Date.now()}-${Math.random()}`, text: newChore, completed: false }, ...(state.chores || [])] });
+      fb.addChore({ id: `c-${Date.now()}-${Math.random()}`, text: newChore, completed: false });
       setNewChore('');
       showToast("添加成功！✨");
     } else {
@@ -1138,11 +1125,14 @@ function DailyChores({ state, setState }: { state: any, setState: any }) {
   };
 
   const toggleChore = (id: string) => {
-    setState({ chores: chores.map((c: Chore) => c.id === id ? { ...c, completed: !c.completed } : c) });
+    const chore = chores.find((c: Chore) => c.id === id);
+    if (chore) {
+      fb.updateChore(id, { completed: !chore.completed });
+    }
   };
 
   const deleteChore = (id: string) => {
-    setState({ chores: chores.filter((c: Chore) => c.id !== id) });
+    fb.deleteChore(id);
   };
 
   return (
