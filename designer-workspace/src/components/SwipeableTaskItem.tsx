@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { motion, useMotionValue, animate } from 'motion/react';
+import React, { useState } from 'react';
 import { Edit2, Trash2 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { Task } from '../store';
+import { motion, useMotionValue, useTransform, animate } from 'motion/react';
 
 interface SwipeableTaskItemProps {
   task: Task;
@@ -15,59 +15,55 @@ interface SwipeableTaskItemProps {
 export const SwipeableTaskItem: React.FC<SwipeableTaskItemProps> = ({ task, isEditing, onEdit, onDelete, children }) => {
   const x = useMotionValue(0);
   const [isOpen, setIsOpen] = useState(false);
-  const ACTIONS_WIDTH = 120;
 
-  const handleDragEnd = (e: any, { offset, velocity }: any) => {
-    if (isEditing) return;
-    if (offset.x < -50 || velocity.x < -500) {
-      animate(x, -ACTIONS_WIDTH, { type: "spring", stiffness: 300, damping: 30 });
+  const handleDragEnd = (e: any, info: any) => {
+    if (info.offset.x < -50) {
       setIsOpen(true);
-    } else if (offset.x > 50 || velocity.x > 500) {
-      animate(x, 0, { type: "spring", stiffness: 300, damping: 30 });
-      setIsOpen(false);
+      animate(x, -120, { type: "spring", stiffness: 300, damping: 30 });
     } else {
-      animate(x, isOpen ? -ACTIONS_WIDTH : 0, { type: "spring", stiffness: 300, damping: 30 });
+      setIsOpen(false);
+      animate(x, 0, { type: "spring", stiffness: 300, damping: 30 });
     }
   };
 
-  useEffect(() => {
-    if (isEditing) {
-      animate(x, 0);
-      setIsOpen(false);
-    }
-  }, [isEditing, x]);
+  const closeMenu = () => {
+    setIsOpen(false);
+    animate(x, 0, { type: "spring", stiffness: 300, damping: 30 });
+  };
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="relative overflow-hidden w-full border-b border-slate-50 dark:border-slate-800/50"
-    >
-      <div className="absolute inset-y-0 right-0 flex items-center justify-end px-4 gap-2 bg-slate-50 dark:bg-slate-800/50 w-full">
-        <button onClick={() => { setIsOpen(false); animate(x, 0); onEdit(); }} className="flex size-10 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 active:scale-95 transition-transform">
+    <div className="relative w-full border-b border-slate-50 dark:border-slate-800/50 overflow-hidden group">
+      {/* Background Actions */}
+      <div className="absolute inset-y-0 right-0 flex items-center justify-end px-4 gap-2 bg-slate-50 dark:bg-slate-800/50 w-full z-0">
+        <button 
+          onClick={() => { closeMenu(); onEdit(); }} 
+          className="flex size-10 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 active:scale-95 transition-transform"
+        >
           <Edit2 className="w-4 h-4" />
         </button>
-        <button onClick={() => { setIsOpen(false); animate(x, 0); onDelete(); }} className="flex size-10 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 active:scale-95 transition-transform">
+        <button 
+          onClick={() => { closeMenu(); onDelete(); }} 
+          className="flex size-10 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 active:scale-95 transition-transform"
+        >
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
       
+      {/* Draggable Content */}
       <motion.div
+        style={{ x }}
         drag={isEditing ? false : "x"}
-        dragConstraints={{ left: -ACTIONS_WIDTH, right: 0 }}
+        dragConstraints={{ left: -120, right: 0 }}
         dragElastic={0.1}
         dragDirectionLock
-        style={{ x, touchAction: 'pan-y' }}
         onDragEnd={handleDragEnd}
         className={cn(
-          "relative z-10 flex items-center gap-4 px-2 min-h-[72px] py-3 justify-between w-full",
-          task.status === 'overdue' ? "bg-red-50 dark:bg-red-900/10" : "bg-white dark:bg-black"
+          "relative z-10 flex w-full items-center gap-4 px-2 min-h-[72px] py-3 justify-between transition-colors",
+          task.status === 'overdue' ? "bg-red-50 dark:bg-red-900/10" : task.status === 'waste' ? "bg-slate-100 dark:bg-slate-800/50 opacity-60" : "bg-white dark:bg-black"
         )}
       >
         {children}
       </motion.div>
-    </motion.div>
+    </div>
   );
 };

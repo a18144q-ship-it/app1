@@ -1,10 +1,56 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Search, Plus, Image as ImageIcon, Link2, Tag, MoreHorizontal, Copy, Menu, User, Zap, Eye, Archive, ArrowLeft, Trash2, Edit2, Check, X, Pin } from 'lucide-react';
+import { Sparkles, Search, Plus, Image as ImageIcon, Link2, Tag, MoreHorizontal, Copy, Menu, User, Zap, Eye, Archive, ArrowLeft, Trash2, Edit2, Check, X, Pin, AlertCircle } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { useAppStore, Record, RecordBlock, Prompt, Chore } from '../store';
+
+function ConfirmModal({ isOpen, message, onConfirm, onCancel }: { isOpen: boolean, message: string, onConfirm: () => void, onCancel: () => void }) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onCancel}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative w-[90%] max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 border border-slate-100 dark:border-slate-800"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full text-red-500">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">确认删除</h3>
+            </div>
+            <p className="text-slate-500 dark:text-slate-400 mb-6">{message}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={onCancel}
+                className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={onConfirm}
+                className="px-4 py-2 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600 transition-colors shadow-sm shadow-red-500/20"
+              >
+                删除
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}
 
 export default function AI() {
   const navigate = useNavigate();
@@ -13,15 +59,20 @@ export default function AI() {
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const setActiveTab = (tab: 'record' | 'library' | 'assistant') => {
+  const setActiveTab = (tab: 'record' | 'library' | 'assistant' | 'summary') => {
     setState({ aiActiveTab: tab });
   };
 
   const searchResults = React.useMemo(() => {
-    if (!searchQuery.trim()) return { records: [], prompts: [], chores: [] };
+    if (!searchQuery.trim()) return { records: [], summaries: [], prompts: [], chores: [] };
     const q = searchQuery.toLowerCase();
     return {
       records: (state.records || []).filter(r => 
+        r.title?.toLowerCase().includes(q) || 
+        r.blocks.some(b => b.type === 'text' && b.content.toLowerCase().includes(q)) ||
+        r.tags?.some(t => t.toLowerCase().includes(q))
+      ),
+      summaries: (state.summaries || []).filter(r => 
         r.title?.toLowerCase().includes(q) || 
         r.blocks.some(b => b.type === 'text' && b.content.toLowerCase().includes(q)) ||
         r.tags?.some(t => t.toLowerCase().includes(q))
@@ -35,9 +86,9 @@ export default function AI() {
         c.text.toLowerCase().includes(q)
       )
     };
-  }, [searchQuery, state.records, state.prompts, state.chores]);
+  }, [searchQuery, state.records, state.summaries, state.prompts, state.chores]);
 
-  const handleResultClick = (tab: 'record' | 'library' | 'assistant', id: string) => {
+  const handleResultClick = (tab: 'record' | 'library' | 'assistant' | 'summary', id: string) => {
     setShowSearch(false);
     setSearchQuery('');
     setActiveTab(tab);
@@ -68,7 +119,7 @@ export default function AI() {
           </button>
           <Sparkles className="w-6 h-6 text-[#4cb2e6]" />
           <h2 className="text-lg font-bold leading-tight tracking-tight text-slate-900 dark:text-slate-100">
-            {aiActiveTab === 'record' ? '灵感记录' : aiActiveTab === 'library' ? 'AI 提示词库' : '日常琐事'}
+            {aiActiveTab === 'record' ? '灵感记录' : aiActiveTab === 'library' ? 'AI 提示词库' : aiActiveTab === 'summary' ? '总结' : '日常琐事'}
           </h2>
         </div>
         <div className="flex gap-2">
@@ -92,6 +143,15 @@ export default function AI() {
           灵感记录
         </button>
         <button
+          onClick={() => setActiveTab('summary')}
+          className={cn(
+            "px-4 py-2 text-sm font-bold whitespace-nowrap border-b-2 transition-colors cursor-pointer",
+            aiActiveTab === 'summary' ? "border-[#4cb2e6] text-[#4cb2e6]" : "border-transparent text-slate-500"
+          )}
+        >
+          总结
+        </button>
+        <button
           onClick={() => setActiveTab('library')}
           className={cn(
             "px-4 py-2 text-sm font-bold whitespace-nowrap border-b-2 transition-colors cursor-pointer",
@@ -112,7 +172,8 @@ export default function AI() {
       </div>
 
       <main className="flex-1 p-4">
-        {aiActiveTab === 'record' && <InspirationRecord state={state} setState={setState} />}
+        {aiActiveTab === 'record' && <InspirationRecord state={state} setState={setState} type="record" />}
+        {aiActiveTab === 'summary' && <InspirationRecord state={state} setState={setState} type="summary" />}
         {aiActiveTab === 'library' && <PromptLibrary state={state} setState={setState} />}
         {aiActiveTab === 'assistant' && <DailyChores state={state} setState={setState} />}
       </main>
@@ -152,7 +213,7 @@ export default function AI() {
                   <div className="p-8 text-center text-slate-400 text-sm">
                     输入关键字开始搜索
                   </div>
-                ) : searchResults.records.length === 0 && searchResults.prompts.length === 0 && searchResults.chores.length === 0 ? (
+                ) : searchResults.records.length === 0 && searchResults.summaries.length === 0 && searchResults.prompts.length === 0 && searchResults.chores.length === 0 ? (
                   <div className="p-8 text-center text-slate-400 text-sm">
                     没有找到相关内容
                   </div>
@@ -169,6 +230,26 @@ export default function AI() {
                               className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors"
                             >
                               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">{r.title || '无标题灵感'}</p>
+                              <p className="text-xs text-slate-500 line-clamp-1">
+                                {r.blocks.find(b => b.type === 'text')?.content || '包含图片内容'}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {searchResults.summaries.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-2 mt-4">总结</h4>
+                        <div className="space-y-1">
+                          {searchResults.summaries.map(r => (
+                            <div 
+                              key={r.id} 
+                              onClick={() => handleResultClick('summary', `summary-${r.id}`)}
+                              className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors"
+                            >
+                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">{r.title || '无标题总结'}</p>
                               <p className="text-xs text-slate-500 line-clamp-1">
                                 {r.blocks.find(b => b.type === 'text')?.content || '包含图片内容'}
                               </p>
@@ -227,8 +308,8 @@ export default function AI() {
   );
 }
 
-function InspirationRecord({ state, setState }: { state: any, setState: any }) {
-  const records = state.records || [];
+function InspirationRecord({ state, setState, type = 'record' }: { state: any, setState: any, type?: 'record' | 'summary' }) {
+  const records = type === 'record' ? (state.records || []) : (state.summaries || []);
   const [draftBlocks, setDraftBlocks] = useState<RecordBlock[]>([{ id: `b-${Date.now()}-${Math.random()}`, type: 'text', content: '' }]);
   const [newTitle, setNewTitle] = useState('');
   const [newTags, setNewTags] = useState<string[]>([]);
@@ -240,6 +321,7 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
   const [editBlocks, setEditBlocks] = useState<RecordBlock[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<Record | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -263,8 +345,12 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
     };
     
     // Use state.records directly to avoid any closure issues and ensure it's an array
-    const currentRecords = state.records || [];
-    setState({ records: [newRecord, ...currentRecords] });
+    const currentRecords = type === 'record' ? (state.records || []) : (state.summaries || []);
+    if (type === 'record') {
+      setState({ records: [newRecord, ...currentRecords] });
+    } else {
+      setState({ summaries: [newRecord, ...currentRecords] });
+    }
     
     setDraftBlocks([{ id: `b-${Date.now()}-${Math.random()}`, type: 'text', content: '' }]);
     setNewTitle('');
@@ -276,7 +362,11 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
   };
 
   const deleteRecord = (id: string) => {
-    setState({ records: (state.records || []).filter((r: Record) => r.id !== id) });
+    if (type === 'record') {
+      setState({ records: (state.records || []).filter((r: Record) => r.id !== id) });
+    } else {
+      setState({ summaries: (state.summaries || []).filter((r: Record) => r.id !== id) });
+    }
   };
 
   const startEdit = (record: Record) => {
@@ -289,13 +379,21 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
     if (validBlocks.length === 0) {
       deleteRecord(id);
     } else {
-      setState({ records: (state.records || []).map((r: Record) => r.id === id ? { ...r, blocks: validBlocks } : r) });
+      if (type === 'record') {
+        setState({ records: (state.records || []).map((r: Record) => r.id === id ? { ...r, blocks: validBlocks } : r) });
+      } else {
+        setState({ summaries: (state.summaries || []).map((r: Record) => r.id === id ? { ...r, blocks: validBlocks } : r) });
+      }
     }
     setEditingId(null);
   };
 
   const togglePin = (id: string) => {
-    setState({ records: (state.records || []).map((r: Record) => r.id === id ? { ...r, isPinned: !r.isPinned } : r) });
+    if (type === 'record') {
+      setState({ records: (state.records || []).map((r: Record) => r.id === id ? { ...r, isPinned: !r.isPinned } : r) });
+    } else {
+      setState({ summaries: (state.summaries || []).map((r: Record) => r.id === id ? { ...r, isPinned: !r.isPinned } : r) });
+    }
   };
 
   const handleEditImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -364,7 +462,7 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
     setShowTagInput(false);
   };
 
-  const sortedRecords = [...(state.records || [])].sort((a: Record, b: Record) => {
+  const sortedRecords = [...records].sort((a: Record, b: Record) => {
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;
     return new Date(b.date).getTime() - new Date(a.date).getTime();
@@ -393,7 +491,7 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
           <input 
             value={newTitle}
             onChange={e => setNewTitle(e.target.value)}
-            placeholder="灵感标题 (可选)"
+            placeholder={type === 'record' ? "灵感标题 (可选)" : "总结标题 (可选)"}
             className="w-full bg-transparent border-none text-lg font-bold placeholder:text-slate-400 focus:ring-0 outline-none text-slate-900 dark:text-slate-100"
           />
         </div>
@@ -412,7 +510,7 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
                   value={block.content}
                   onChange={(e) => updateDraftBlock(block.id, e.target.value)}
                   className="w-full min-h-[40px] border-none bg-transparent p-0 text-base placeholder:text-slate-400 focus:ring-0 resize-none text-slate-900 dark:text-slate-100 outline-none mt-2"
-                  placeholder={idx === 0 ? "记录你的瞬间灵感..." : "添加文字说明..."}
+                  placeholder={idx === 0 ? (type === 'record' ? "记录你的瞬间灵感..." : "记录你的任务总结...") : "添加文字说明..."}
                 ></textarea>
               ) : (
                 <div className="relative w-full rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 mt-2">
@@ -508,7 +606,7 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 key={record.id}
-                id={`record-${record.id}`}
+                id={`${type}-${record.id}`}
                 className="break-inside-avoid group relative flex flex-col overflow-hidden rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm scroll-mt-24"
               >
                 {record.isPinned && (
@@ -640,7 +738,7 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
                           <Pin className={cn("w-4 h-4", record.isPinned && "fill-current")} />
                         </button>
                         <button onClick={(e) => { e.stopPropagation(); startEdit(record); }} className="p-2.5 text-slate-400 hover:text-[#4cb2e6] active:scale-95 transition-transform"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); deleteRecord(record.id); }} className="p-2.5 text-slate-400 hover:text-red-500 active:scale-95 transition-transform"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm(record.id); }} className="p-2.5 text-slate-400 hover:text-red-500 active:scale-95 transition-transform"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
                   )}
@@ -673,7 +771,7 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
             >
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedRecord.title || '灵感详情'}</h3>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedRecord.title || (type === 'record' ? '灵感详情' : '总结详情')}</h3>
                   <button onClick={() => togglePin(selectedRecord.id)} className={cn("p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800", selectedRecord.isPinned ? "text-[#4cb2e6]" : "text-slate-400")}>
                     <Pin className={cn("w-4 h-4", selectedRecord.isPinned && "fill-current")} />
                   </button>
@@ -724,6 +822,18 @@ function InspirationRecord({ state, setState }: { state: any, setState: any }) {
           </>
         )}
       </AnimatePresence>
+
+      <ConfirmModal
+        isOpen={!!deleteConfirm}
+        message={type === 'record' ? "确定要删除这条记录吗？此操作无法撤销。" : "确定要删除这条总结吗？此操作无法撤销。"}
+        onConfirm={() => {
+          if (deleteConfirm) {
+            deleteRecord(deleteConfirm);
+            setDeleteConfirm(null);
+          }
+        }}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }
@@ -738,6 +848,7 @@ function PromptLibrary({ state, setState }: { state: any, setState: any }) {
   const [editImages, setEditImages] = useState<string[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -909,7 +1020,7 @@ function PromptLibrary({ state, setState }: { state: any, setState: any }) {
                       <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-1 group-hover:text-[#4cb2e6] transition-colors">{prompt.title}</h3>
                       <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity gap-1">
                         <button onClick={(e) => { e.stopPropagation(); startEdit(prompt); }} className="p-2.5 text-slate-400 hover:text-[#4cb2e6] cursor-pointer active:scale-95 transition-transform"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); deletePrompt(prompt.id); }} className="p-2.5 text-slate-400 hover:text-red-500 cursor-pointer active:scale-95 transition-transform"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm(prompt.id); }} className="p-2.5 text-slate-400 hover:text-red-500 cursor-pointer active:scale-95 transition-transform"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
                     <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed italic line-clamp-2">
@@ -989,6 +1100,18 @@ function PromptLibrary({ state, setState }: { state: any, setState: any }) {
           </>
         )}
       </AnimatePresence>
+
+      <ConfirmModal
+        isOpen={!!deleteConfirm}
+        message="确定要删除这条提示词吗？此操作无法撤销。"
+        onConfirm={() => {
+          if (deleteConfirm) {
+            deletePrompt(deleteConfirm);
+            setDeleteConfirm(null);
+          }
+        }}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }
@@ -997,6 +1120,7 @@ function DailyChores({ state, setState }: { state: any, setState: any }) {
   const chores = state.chores || [];
   const [newChore, setNewChore] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -1079,7 +1203,7 @@ function DailyChores({ state, setState }: { state: any, setState: any }) {
                 </span>
               </div>
               <button 
-                onClick={() => deleteChore(chore.id)}
+                onClick={() => setDeleteConfirm(chore.id)}
                 className="p-2 text-slate-400 hover:text-red-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" />
@@ -1093,6 +1217,18 @@ function DailyChores({ state, setState }: { state: any, setState: any }) {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={!!deleteConfirm}
+        message="确定要删除这条琐事吗？此操作无法撤销。"
+        onConfirm={() => {
+          if (deleteConfirm) {
+            deleteChore(deleteConfirm);
+            setDeleteConfirm(null);
+          }
+        }}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }

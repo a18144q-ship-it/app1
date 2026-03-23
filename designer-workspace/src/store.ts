@@ -6,11 +6,12 @@ export type Task = {
   id: string;
   title: string;
   description?: string;
-  status: 'completed' | 'in-progress' | 'overdue' | 'pending';
+  status: 'completed' | 'in-progress' | 'overdue' | 'pending' | 'waste';
   time: string;
   isLazy?: boolean;
   date?: string;
   category?: TaskCategory;
+  groupId?: string;
 };
 
 export type FocusSession = {
@@ -56,9 +57,10 @@ export type AppState = {
   lastCompletionDate: string | null;
   lazyTitle: string;
   records: Record[];
+  summaries: Record[];
   prompts: Prompt[];
   chores: Chore[];
-  aiActiveTab: 'record' | 'library' | 'assistant';
+  aiActiveTab: 'record' | 'library' | 'assistant' | 'summary';
 };
 
 const defaultState: AppState = {
@@ -102,6 +104,7 @@ const defaultState: AppState = {
       date: '2023-11-02'
     }
   ],
+  summaries: [],
   prompts: [
     {
       id: '1',

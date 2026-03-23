@@ -3,10 +3,28 @@ import { NavLink, useLocation, useOutlet } from 'react-router-dom';
 import { Home, CheckSquare, Sparkles, Timer, BarChart2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../utils/cn';
+import { useAppStore } from '../store';
 
 export default function Layout() {
   const location = useLocation();
   const outlet = useOutlet();
+  const [state, setState] = useAppStore();
+
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    let hasChanges = false;
+    const newTasks = (state.tasks || []).map(task => {
+      if (task.date && task.date < today && task.status !== 'completed' && task.status !== 'waste') {
+        hasChanges = true;
+        return { ...task, status: 'waste' as const, title: '你真是废物', description: '未按时完成' };
+      }
+      return task;
+    });
+
+    if (hasChanges) {
+      setState({ tasks: newTasks });
+    }
+  }, [state.tasks, setState]);
 
   const navItems = [
     { to: "/", icon: Home, label: "首页" },

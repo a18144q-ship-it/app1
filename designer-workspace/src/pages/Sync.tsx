@@ -241,31 +241,17 @@ export default function Sync() {
       // 如果是原生 APP 环境，优先使用 Capacitor 插件
       if (typeof window !== 'undefined' && (window as any).Capacitor && (window as any).Capacitor.isNativePlatform()) {
         try {
-          const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
-          const { Share } = await import('@capacitor/share');
-          
-          // 写入缓存目录
-          const result = await Filesystem.writeFile({
-            path: fileName,
-            data: jsonString,
-            directory: Directory.Cache,
-            encoding: Encoding.UTF8,
+          const { Clipboard } = await import('@capacitor/clipboard');
+          await Clipboard.write({
+            string: jsonString
           });
-          
-          // 调用原生分享面板
-          await Share.share({
-            title: '数据备份',
-            text: '这是我的应用数据备份文件，请在另一台设备上导入。',
-            url: result.uri,
-            dialogTitle: '分享备份文件',
-          });
+          alert('由于系统限制，已将备份数据复制到剪贴板。请将其粘贴到备忘录或其他地方保存。');
           setError(null);
           return;
         } catch (e) {
-          console.error('Native share failed', e);
-          // 如果原生分享失败，尝试直接复制到剪贴板
+          console.error('Native copy failed', e);
           handleCopyData();
-          alert('分享失败，已自动复制数据代码，请前往另一台设备粘贴导入。');
+          alert('复制失败，请尝试使用"复制/粘贴数据代码"功能。');
           return;
         }
       }
@@ -273,7 +259,9 @@ export default function Sync() {
       const file = new File([jsonString], fileName, { type: 'application/json' });
 
       // 优先尝试 Web Share API (手机端分享到微信、QQ等)
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      // 注意：在某些 Android WebView 中，带有 files 的 navigator.share 可能会导致闪退
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      if (!isAndroid && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
             files: [file],

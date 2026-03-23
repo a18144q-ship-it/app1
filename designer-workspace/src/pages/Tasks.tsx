@@ -142,10 +142,23 @@ export default function Tasks() {
     if (!pendingTaskId) return;
     
     const today = new Date().toISOString().split('T')[0];
+    const task = (state.tasks || []).find(t => t.id === pendingTaskId);
     const newTasks = (state.tasks || []).map(t => t.id === pendingTaskId ? { ...t, status: 'completed' } as Task : t);
     setState({ tasks: newTasks });
     setShowToxicConfirm(false);
     setPendingTaskId(null);
+
+    if (task) {
+      if (task.groupId) {
+        const groupTasks = newTasks.filter(t => t.groupId === task.groupId);
+        const allCompleted = groupTasks.every(t => t.status === 'completed' || t.status === 'waste');
+        if (allCompleted) {
+          generateTaskSummary(task);
+        }
+      } else {
+        generateTaskSummary(task);
+      }
+    }
 
     // Check if all today's tasks are completed
     const todayTasks = newTasks.filter(t => t.date === today);
@@ -199,6 +212,40 @@ export default function Tasks() {
     setEditTime(task.time.includes(':') ? task.time : '12:00');
   };
 
+  const generateTaskSummary = (task: Task) => {
+    const newRecord = {
+      id: `summary-${Date.now()}`,
+      title: `任务总结: ${task.title}`,
+      blocks: [
+        { id: `b-${Date.now()}`, type: 'text' as const, content: `我已经完成了任务：${task.title}。\n${task.description || ''}` }
+      ],
+      date: new Date().toISOString().split('T')[0],
+      tags: ['任务总结', task.category || '未分类']
+    };
+    setState({ 
+      summaries: [newRecord, ...(state.summaries || [])],
+      aiActiveTab: 'summary'
+    });
+    showToast('已生成任务总结，可前往 AI 栏目查看');
+  };
+
+  const completeAllProgress = (task: Task) => {
+    if (!task.groupId) {
+      showToast('该任务没有其他进度');
+      return;
+    }
+    const today = new Date().toISOString().split('T')[0];
+    const newTasks = (state.tasks || []).map(t => {
+      if (t.groupId === task.groupId && t.date && t.date >= today && t.status !== 'completed' && t.status !== 'waste') {
+        return { ...t, status: 'completed' as const };
+      }
+      return t;
+    });
+    setState({ tasks: newTasks });
+    setEditingId(null);
+    generateTaskSummary(task);
+  };
+
   const saveEdit = (id: string) => {
     if (editTitle.trim()) {
       setState({ tasks: (state.tasks || []).map(t => t.id === id ? { ...t, title: editTitle, description: editDescription.trim() || undefined, time: editTime } : t) });
@@ -220,6 +267,7 @@ export default function Tasks() {
       const newTasksToAdd: Task[] = [];
       let current = new Date(start);
       const actualEnd = end < start ? start : end;
+      const groupId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
       // Limit to 31 days to prevent accidental massive creation
       const maxDays = 31;
@@ -234,6 +282,7 @@ export default function Tasks() {
           time: newTaskTime,
           date: current.toISOString().split('T')[0],
           category: newTaskCategory,
+          groupId: groupId,
         });
         current.setDate(current.getDate() + 1);
         count++;
@@ -314,6 +363,11 @@ export default function Tasks() {
                     className="bg-slate-100 dark:bg-slate-800 border-none rounded px-2 py-1 text-xs focus:ring-2 focus:ring-[#4cb2e6] text-slate-600 dark:text-slate-300"
                   />
                   <div className="flex-1"></div>
+                  {task.groupId && (
+                    <button onClick={() => completeAllProgress(task)} className="text-xs text-[#4cb2e6] font-medium mr-2">
+                      提前完成全部
+                    </button>
+                  )}
                   <button onClick={() => saveEdit(task.id)} className="text-emerald-500 p-1"><Check className="w-4 h-4" /></button>
                   <button onClick={() => setEditingId(null)} className="text-slate-400 p-1"><X className="w-4 h-4" /></button>
                 </div>

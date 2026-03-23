@@ -161,40 +161,54 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Today's Progress */}
-          <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">今日进度 🎯</span>
-              <span className="text-xs text-slate-500">{Math.round(todayProgress)}%</span>
+          {/* Today's Tasks */}
+          <div className="mt-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">今日进行中任务</h3>
+              <button onClick={() => navigate('/tasks')} className="text-xs text-[#4cb2e6] font-medium flex items-center gap-1">
+                全部任务 <ArrowRight className="w-3 h-3" />
+              </button>
             </div>
-            <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${todayProgress}%` }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-                className="h-full bg-[#4cb2e6]"
-              />
-            </div>
-            <p className="text-[10px] text-slate-400 mt-2 text-center">
-              {todayTasks.length > 0 
-                ? `今日共 ${todayTasks.length} 个任务，已完成 ${completedTodayTasks} 个` 
-                : '今日暂无任务，给自己放个假？'}
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between mt-2">
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-normal leading-normal">
-              {pendingTodayTasks > 0 
-                ? `你还有 ${pendingTodayTasks} 个未完成的今日重点任务，加油！` 
-                : '今日任务已全部搞定，去休息吧（或者再卷一会儿）？'}
-            </p>
-            <button 
-              onClick={() => navigate('/tasks')}
-              className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-8 px-3 bg-[#4cb2e6] text-white gap-1 text-xs font-semibold transition-opacity hover:opacity-90"
-            >
-              <span>{pendingTodayTasks > 0 ? '去完成' : '去看看'}</span>
-              <ArrowRight className="w-3 h-3" />
-            </button>
+            
+            {todayTasks.filter(t => t.status !== 'completed' && t.status !== 'waste').length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {todayTasks.filter(t => t.status !== 'completed' && t.status !== 'waste').map(task => {
+                  let progress = 0;
+                  if (task.time && task.time.includes(':')) {
+                    const [hours, minutes] = task.time.split(':').map(Number);
+                    const taskMinutes = hours * 60 + (minutes || 0);
+                    const now = new Date();
+                    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                    progress = currentMinutes >= taskMinutes ? 100 : (currentMinutes / taskMinutes) * 100;
+                  }
+                  
+                  return (
+                    <div key={task.id} className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-800 relative overflow-hidden">
+                      <div className="absolute top-0 left-0 h-1 bg-slate-100 dark:bg-slate-800 w-full">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${progress}%` }}
+                          className={cn("h-full", progress >= 100 ? "bg-red-400" : "bg-[#4cb2e6]")}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <div className="flex flex-col">
+                          <p className="text-sm font-medium text-slate-900 dark:text-white line-clamp-1">{task.title}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{task.time}</p>
+                        </div>
+                        <div className="text-xs font-medium text-slate-400">
+                          {progress >= 100 ? '已超时' : `${Math.round(progress)}%`}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-100 dark:border-slate-800 text-center">
+                <p className="text-sm text-slate-500">今日任务已全部搞定，去休息吧！</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

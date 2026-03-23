@@ -11,6 +11,7 @@ export default function Stats() {
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
 
   const completedTasks = state.tasks.filter(t => t.status === 'completed').length;
+  const wasteTasks = state.tasks.filter(t => t.status === 'waste').length;
   const totalFocusTime = state.focusSessions.reduce((acc, s) => acc + s.duration, 0);
   const totalTomatoes = state.focusSessions.length;
   
@@ -62,17 +63,32 @@ export default function Stats() {
       </div>
 
       <div className="p-4 grid grid-cols-2 gap-4">
-        <div className="col-span-2 bg-[#4cb2e6]/10 dark:bg-[#4cb2e6]/20 p-6 rounded-xl flex flex-col gap-1">
-          <p className="text-sm font-medium text-[#4cb2e6] uppercase tracking-wider">
-            总完成任务
-          </p>
-          <div className="flex items-end gap-2">
-            <p className="text-4xl font-bold text-slate-900 dark:text-white">
-              {completedTasks}
+        <div className="col-span-2 bg-[#4cb2e6]/10 dark:bg-[#4cb2e6]/20 p-6 rounded-xl flex items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <p className="text-sm font-medium text-[#4cb2e6] uppercase tracking-wider">
+              总完成任务
             </p>
-            <p className="text-sm font-medium text-emerald-500 mb-1">
-              连续 {state.consecutiveDays} 天
+            <div className="flex items-end gap-2">
+              <p className="text-4xl font-bold text-slate-900 dark:text-white">
+                {completedTasks}
+              </p>
+              <p className="text-sm font-medium text-emerald-500 mb-1">
+                连续 {state.consecutiveDays} 天
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1 text-right">
+            <p className="text-sm font-medium text-red-500 uppercase tracking-wider">
+              废物记录
             </p>
+            <div className="flex items-end justify-end gap-2">
+              <p className="text-4xl font-bold text-red-500">
+                {wasteTasks}
+              </p>
+              <p className="text-sm font-medium text-red-400 mb-1">
+                次
+              </p>
+            </div>
           </div>
         </div>
         <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
