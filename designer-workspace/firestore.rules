@@ -1,0 +1,152 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function hasOnlyAllowedFields(allowedFields) {
+      return request.resource.data.keys().hasOnly(allowedFields);
+    }
+    
+    function isValidString(field, minLen, maxLen) {
+      return field is string && field.size() >= minLen && field.size() <= maxLen;
+    }
+    
+    function isValidOptionalString(field, minLen, maxLen) {
+      return !('field' in request.resource.data) || (request.resource.data[field] is string && request.resource.data[field].size() >= minLen && request.resource.data[field].size() <= maxLen);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUserProfile() {
+      return hasOnlyAllowedFields(['consecutiveDays', 'lastCompletionDate', 'lazyTitle', 'aiActiveTab']) &&
+             (!('consecutiveDays' in request.resource.data) || request.resource.data.consecutiveDays is number) &&
+             (!('lastCompletionDate' in request.resource.data) || request.resource.data.lastCompletionDate is string || request.resource.data.lastCompletionDate == null) &&
+             (!('lazyTitle' in request.resource.data) || isValidString(request.resource.data.lazyTitle, 0, 100)) &&
+             (!('aiActiveTab' in request.resource.data) || request.resource.data.aiActiveTab in ['record', 'library', 'assistant', 'summary']);
+    }
+
+    function isValidTask() {
+      return hasOnlyAllowedFields(['id', 'title', 'description', 'status', 'time', 'isLazy', 'date', 'category', 'groupId', 'userId']) &&
+             isValidString(request.resource.data.id, 1, 100) &&
+             isValidString(request.resource.data.title, 1, 200) &&
+             (!('description' in request.resource.data) || isValidString(request.resource.data.description, 0, 1000)) &&
+             request.resource.data.status in ['completed', 'in-progress', 'overdue', 'pending', 'waste'] &&
+             isValidString(request.resource.data.time, 1, 50) &&
+             (!('isLazy' in request.resource.data) || request.resource.data.isLazy is bool) &&
+             (!('date' in request.resource.data) || isValidString(request.resource.data.date, 1, 50)) &&
+             (!('category' in request.resource.data) || request.resource.data.category in ['life', 'study', 'work']) &&
+             (!('groupId' in request.resource.data) || isValidString(request.resource.data.groupId, 1, 100)) &&
+             request.resource.data.userId == request.auth.uid;
+    }
+
+    function isValidFocusSession() {
+      return hasOnlyAllowedFields(['id', 'duration', 'date', 'userId']) &&
+             isValidString(request.resource.data.id, 1, 100) &&
+             request.resource.data.duration is number &&
+             isValidString(request.resource.data.date, 1, 50) &&
+             request.resource.data.userId == request.auth.uid;
+    }
+
+    function isValidRecordBlock(block) {
+      return block is map &&
+             block.keys().hasOnly(['id', 'type', 'content']) &&
+             isValidString(block.id, 1, 100) &&
+             block.type in ['text', 'image'] &&
+             isValidString(block.content, 0, 1048576); // Up to 1MB for base64 images
+    }
+
+    function areValidRecordBlocks(blocks) {
+      return blocks is list && blocks.size() <= 100; // Max 100 blocks
+    }
+
+    function isValidRecord() {
+      return hasOnlyAllowedFields(['id', 'blocks', 'title', 'date', 'tags', 'link', 'isPinned', 'type', 'userId']) &&
+             isValidString(request.resource.data.id, 1, 100) &&
+             areValidRecordBlocks(request.resource.data.blocks) &&
+             (!('title' in request.resource.data) || isValidString(request.resource.data.title, 0, 200)) &&
+             isValidString(request.resource.data.date, 1, 50) &&
+             (!('tags' in request.resource.data) || (request.resource.data.tags is list && request.resource.data.tags.size() <= 20)) &&
+             (!('link' in request.resource.data) || isValidString(request.resource.data.link, 0, 1000)) &&
+             (!('isPinned' in request.resource.data) || request.resource.data.isPinned is bool) &&
+             request.resource.data.type in ['record', 'summary'] &&
+             request.resource.data.userId == request.auth.uid;
+    }
+
+    function isValidPrompt() {
+      return hasOnlyAllowedFields(['id', 'title', 'content', 'tag', 'images', 'userId']) &&
+             isValidString(request.resource.data.id, 1, 100) &&
+             isValidString(request.resource.data.title, 1, 200) &&
+             isValidString(request.resource.data.content, 1, 5000) &&
+             isValidString(request.resource.data.tag, 1, 100) &&
+             (!('images' in request.resource.data) || (request.resource.data.images is list && request.resource.data.images.size() <= 10)) &&
+             request.resource.data.userId == request.auth.uid;
+    }
+
+    function isValidChore() {
+      return hasOnlyAllowedFields(['id', 'text', 'completed', 'userId']) &&
+             isValidString(request.resource.data.id, 1, 100) &&
+             isValidString(request.resource.data.text, 1, 500) &&
+             request.resource.data.completed is bool &&
+             request.resource.data.userId == request.auth.uid;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserProfile();
+      allow update: if isOwner(userId) && isValidUserProfile();
+      allow delete: if isOwner(userId);
+      
+      match /tasks/{taskId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidTask();
+        allow update: if isOwner(userId) && isValidTask();
+        allow delete: if isOwner(userId);
+      }
+      
+      match /focusSessions/{sessionId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidFocusSession();
+        allow update: if isOwner(userId) && isValidFocusSession();
+        allow delete: if isOwner(userId);
+      }
+      
+      match /records/{recordId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidRecord();
+        allow update: if isOwner(userId) && isValidRecord();
+        allow delete: if isOwner(userId);
+      }
+      
+      match /prompts/{promptId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidPrompt();
+        allow update: if isOwner(userId) && isValidPrompt();
+        allow delete: if isOwner(userId);
+      }
+      
+      match /chores/{choreId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidChore();
+        allow update: if isOwner(userId) && isValidChore();
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}
